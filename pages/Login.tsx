@@ -1,19 +1,31 @@
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../AuthContext';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  const { signIn } = useAuth();
+  const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setTimeout(() => {
+    setError(null);
+
+    try {
+      await signIn(email, password);
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err.message || 'Falha ao realizar login. Verifique suas credenciais.');
+    } finally {
       setIsLoading(false);
-      alert('Login realizado com sucesso!');
-    }, 1500);
+    }
   };
 
   return (
@@ -36,6 +48,12 @@ const Login: React.FC = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="p-4 bg-rose-50 border border-rose-100 text-rose-600 text-sm rounded-xl text-center font-medium">
+                {error}
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">
                 E-mail
@@ -58,14 +76,9 @@ const Login: React.FC = () => {
             </div>
 
             <div>
-              <div className="flex justify-between items-center mb-2 ml-1">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                  Senha
-                </label>
-                <a href="#" className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors">
-                  Esqueci a senha?
-                </a>
-              </div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">
+                Senha
+              </label>
               <div className="relative group">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors">
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -114,18 +127,6 @@ const Login: React.FC = () => {
               )}
             </button>
           </form>
-
-          <div className="mt-10 pt-8 border-t border-slate-100 flex flex-col items-center">
-            <p className="text-slate-500 text-xs">
-              Não tem uma conta? <a href="#" className="text-indigo-600 font-bold hover:underline">Falar com o suporte</a>
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-8 flex justify-center gap-6 text-slate-400 text-xs font-medium">
-          <a href="#" className="hover:text-slate-600 transition-colors">Termos de Uso</a>
-          <a href="#" className="hover:text-slate-600 transition-colors">Privacidade</a>
-          <span>&copy; 2025 Portal Administrativo</span>
         </div>
       </div>
     </div>
