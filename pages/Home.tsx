@@ -2,6 +2,7 @@
 import React from 'react';
 import Header from '../components/Header';
 import Hero from '../components/Hero';
+import CorretorBlock from '../components/CorretorBlock';
 
 const Home: React.FC = () => {
   return (
@@ -12,6 +13,17 @@ const Home: React.FC = () => {
 
       {/* Hero Section com Barra de Busca */}
       <Hero />
+
+      {/* Perfil do Corretor */}
+      <CorretorBlock 
+        nome="Marlon Sales"
+        descricao="Marlon Sales é o corretor de imóveis que une expertise estratégica a um atendimento dinâmico e humano, transformando a complexa jornada imobiliária em uma experiência de sucesso. Focado em entender as necessidades individuais de cada cliente, ele utiliza seu profundo conhecimento de mercado para conectar pessoas a oportunidades únicas, garantindo não apenas um bom negócio, mas a realização de um importante projeto de vida."
+        creci="4567891011"
+        telefone="8332210008"
+        instagram="https://instagram.com/marlonsales"
+        linkedin="https://linkedin.com/in/marlonsales"
+        tiktok="https://tiktok.com/@marlonsales"
+      />
 
       {/* ÁREA DE RESULTADOS (ESTADO VAZIO) - Mantida para futura integração */}
       <section className="max-w-7xl mx-auto px-6 py-24">
