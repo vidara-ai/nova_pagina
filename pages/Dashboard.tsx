@@ -5,12 +5,7 @@ import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import StatCard from '../components/StatCard';
 
-/**
- * Componente principal do Dashboard.
- * Organiza a estrutura da página em Sidebar, Header e Área de Conteúdo Principal.
- */
 const Dashboard: React.FC = () => {
-  // Dados mockados para exibição na dashboard
   const metrics = [
     { title: 'Total de Imóveis', value: '1,284', change: '8.2%', isPositive: true, icon: <Icons.Dashboard /> },
     { title: 'Leads do Mês', value: '452', change: '12.5%', isPositive: true, icon: <Icons.Users /> },
@@ -27,15 +22,10 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
-      {/* Navegação Lateral */}
       <Sidebar />
-
-      {/* Conteúdo Principal */}
       <div className="flex-1 lg:ml-64 flex flex-col min-w-0">
         <Header />
-
         <main className="p-6 md:p-8 space-y-8 animate-in fade-in duration-500">
-          {/* Título e Ações Rápidas */}
           <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
             <div>
               <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Visão Geral</h1>
@@ -51,16 +41,13 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Grid de Métricas */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {metrics.map((metric, idx) => (
               <StatCard key={idx} {...metric} />
             ))}
           </div>
 
-          {/* Área de Dados e Tabelas */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-            {/* Tabela de Leads Recentes */}
             <div className="xl:col-span-2 bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
               <div className="p-6 border-b border-slate-100 flex justify-between items-center">
                 <h2 className="font-bold text-slate-900">Leads Recentes</h2>
@@ -103,7 +90,6 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Widget Lateral / Mini Calendário ou Resumo */}
             <div className="bg-indigo-600 rounded-[2rem] p-8 text-white flex flex-col justify-between shadow-2xl shadow-indigo-200 relative overflow-hidden">
               <div className="absolute top-0 right-0 p-8 opacity-20 transform translate-x-4 -translate-y-4">
                 <svg className="w-32 h-32" fill="currentColor" viewBox="0 0 24 24">
