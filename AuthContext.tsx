@@ -1,17 +1,13 @@
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-}
+import { supabase } from './services/supabase';
+import { User } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  signIn: () => Promise<void>;
-  signOut: () => void;
+  signIn: (email: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,20 +15,21 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
 
-  const signIn = async () => {
-    // Simulação de delay de rede
-    await new Promise((resolve) => setTimeout(resolve, 800));
+  const signIn = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) throw error;
     
-    const mockUser: User = {
-      id: '1',
-      name: 'Rodrigo Oliveira',
-      email: 'rodrigo@exemplo.com',
-    };
-    
-    setUser(mockUser);
+    if (data.user) {
+      setUser(data.user);
+    }
   };
 
-  const signOut = () => {
+  const signOut = async () => {
+    await supabase.auth.signOut();
     setUser(null);
   };
 
