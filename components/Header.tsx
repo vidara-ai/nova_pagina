@@ -3,42 +3,42 @@ import React from 'react';
 
 const Header: React.FC = () => {
   return (
-    <header className="h-16 flex items-center justify-between px-8 bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40">
-      <div className="flex items-center gap-4 flex-1">
-        <div className="relative max-w-md w-full">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </span>
-          <input 
-            type="text" 
-            placeholder="Pesquisar..." 
-            className="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none"
-          />
-        </div>
-      </div>
-
-      <div className="flex items-center gap-6">
-        <button className="relative text-slate-500 hover:text-indigo-600 transition-colors">
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-          </svg>
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-[10px] text-white font-bold rounded-full flex items-center justify-center border-2 border-white">
-            3
-          </span>
-        </button>
-
-        <div className="flex items-center gap-3 pl-6 border-l border-slate-200">
-          <div className="text-right">
-            <div className="text-sm font-semibold text-slate-900">Rodrigo Oliveira</div>
-            <div className="text-xs text-slate-500 font-medium">Administrador</div>
+    <header className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-100">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
+        {/* Logo */}
+        <div className="flex items-center gap-2 cursor-pointer group">
+          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-black text-xl shadow-lg shadow-indigo-100 group-hover:scale-105 transition-transform">
+            V
           </div>
-          <img 
-            src="https://picsum.photos/seed/admin/100/100" 
-            alt="Profile" 
-            className="w-10 h-10 rounded-xl object-cover ring-2 ring-slate-100"
-          />
+          <span className="text-xl font-black text-slate-900 tracking-tighter uppercase">
+            Vitrine<span className="text-indigo-600">Digital</span>
+          </span>
+        </div>
+
+        {/* Navigation */}
+        <nav className="hidden lg:flex items-center gap-8">
+          {['Alugar', 'Comprar', 'Lançamentos', 'Serviços'].map((item) => (
+            <a 
+              key={item} 
+              href="#" 
+              className="text-sm font-bold text-slate-500 hover:text-indigo-600 uppercase tracking-widest transition-colors"
+            >
+              {item}
+            </a>
+          ))}
+        </nav>
+
+        {/* Action Buttons */}
+        <div className="flex items-center gap-3">
+          <button className="hidden sm:block px-5 py-2.5 border-2 border-slate-200 text-slate-600 text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all">
+            Anuncie seu imóvel
+          </button>
+          <button className="flex items-center gap-2 px-5 py-2.5 bg-[#25D366] text-white text-[11px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-green-100 hover:bg-[#20ba5a] hover:-translate-y-0.5 transition-all">
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.316 1.592 5.448 0 9.886-4.438 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.301-.15-.178-.3-.39-.15-.213-.15-1.258-.62-1.453-.695-.194-.075-.336-.112-.477.112-.142.225-.547.695-.671.825-.124.131-.248.15-.549 0-.301-.15-1.27-.468-2.42-1.494-.894-.797-1.496-1.782-1.672-2.083-.176-.301-.019-.463.131-.613.136-.135.301-.35.452-.525.151-.175.201-.3.301-.5s.05-.375-.025-.525c-.075-.15-.477-1.15-.653-1.575-.172-.416-.346-.359-.477-.365l-.407-.006c-.142 0-.372.053-.566.264-.194.211-.741.725-.741 1.769s.759 2.05 1.059 2.45c.3.4 1.491 2.277 3.611 3.19.504.217.898.347 1.205.445.508.162.971.139 1.336.084.408-.061 1.258-.515 1.434-.1.176-.415.176-.77.124-.825-.052-.055-.194-.085-.495-.235z"/>
+            </svg>
+            Fale com um corretor
+          </button>
         </div>
       </div>
     </header>
