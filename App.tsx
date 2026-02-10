@@ -7,6 +7,9 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Configuracoes from './pages/Configuracoes';
+import ImovelForm from './pages/ImovelForm';
+import Imoveis from './pages/Imoveis';
+import Leads from './pages/Leads';
 
 const App: React.FC = () => {
   return (
@@ -25,6 +28,30 @@ const App: React.FC = () => {
             element={
               <PrivateRoute>
                 <Dashboard />
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/leads" 
+            element={
+              <PrivateRoute>
+                <Leads />
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/imoveis" 
+            element={
+              <PrivateRoute>
+                <Imoveis />
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/imoveis/novo" 
+            element={
+              <PrivateRoute>
+                <ImovelForm />
               </PrivateRoute>
             } 
           />
