@@ -4,16 +4,43 @@ import { useNavigate, useParams } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import { Icons, LISTA_CARACTERISTICAS_IMOVEL, LISTA_CARACTERISTICAS_CONDOMINIO, LISTA_PAGAMENTO, LISTA_GARANTIAS } from '../constants';
 import { supabase } from '../services/supabase';
-import { Imovel, ImovelFoto } from '../types';
+import { Imovel } from '../types';
 
-interface ImageItem {
+interface PhotoItem {
   id: string;
   file: File | null;
   preview: string;
-  url?: string;
+  url?: string; // Preenchido se já estiver no R2
+  isNew: boolean;
 }
 
-const WORKER_URL = (import.meta as any).env.VITE_WORKER_URL || 'https://orange.seusubdominio.workers.dev';
+// Estado inicial imutável para garantir que nenhum campo seja undefined
+const INITIAL_FORM_STATE: Partial<Imovel> = {
+  referencia: '',
+  codigo_imovel: '',
+  status_imovel: 'Disponível',
+  finalidade: 'venda',
+  titulo: '',
+  tipo_imovel: 'Apartamento',
+  valor_venda: 0,
+  valor_locacao: 0,
+  area_m2: 0,
+  dormitorios: 0,
+  suites: 0,
+  banheiros: 0,
+  vagas_garagem: 0,
+  bairro: '',
+  cidade: '',
+  uf: '',
+  descricao: '',
+  destaque: false,
+  ativo: true,
+  caracteristicas_imovel: [],
+  caracteristicas_condominio: [],
+  opcoes_negociacao: []
+};
+
+const WORKER_URL = (import.meta as any).env.VITE_WORKER_URL || 'https://orange.corretorprime36.workers.dev';
 
 const ImovelForm: React.FC = () => {
   const { id } = useParams();
@@ -22,45 +49,14 @@ const ImovelForm: React.FC = () => {
 
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
-  const [images, setImages] = useState<ImageItem[]>([]);
+  const [formData, setFormData] = useState<Partial<Imovel>>(INITIAL_FORM_STATE);
+  const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
-  const [formData, setFormData] = useState<Partial<Imovel>>({
-    codigo_imovel: '',
-    titulo: '',
-    descricao: '',
-    tipo_imovel: 'Apartamento',
-    status_imovel: 'Disponível',
-    finalidade: 'venda',
-    valor_venda: 0,
-    valor_locacao: 0,
-    dormitorios: 0,
-    suites: 0,
-    banheiros: 0,
-    vagas_garagem: 0,
-    area_m2: 0,
-    bairro: '',
-    cidade: '',
-    uf: '',
-    destaque: false,
-    ativo: true,
-    caracteristicas_imovel: [],
-    caracteristicas_condominio: [],
-    opcoes_negociacao: []
-  });
-
   useEffect(() => {
-    if (id) {
-      fetchImovel();
-    } else {
-      generateAutoCode();
-    }
+    if (id) fetchImovel();
+    else setFormData({ ...INITIAL_FORM_STATE, codigo_imovel: `IMV-${Math.floor(1000 + Math.random() * 9000)}` });
   }, [id]);
-
-  const generateAutoCode = () => {
-    const code = `IMV-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-    setFormData(prev => ({ ...prev, codigo_imovel: code }));
-  };
 
   const fetchImovel = async () => {
     setFetching(true);
@@ -74,330 +70,283 @@ const ImovelForm: React.FC = () => {
       if (error) throw error;
       
       if (data) {
-        // Garantimos que o merge não remova propriedades do estado inicial por causa de nulls do banco
-        setFormData(prev => ({
-          ...prev,
+        // MERGE SEGURO: Garante que arrays nulos do banco voltem a ser arrays vazios
+        setFormData({
+          ...INITIAL_FORM_STATE,
           ...data,
-          valor_venda: data.valor_venda ?? 0,
-          valor_locacao: data.valor_locacao ?? 0,
           caracteristicas_imovel: data.caracteristicas_imovel || [],
           caracteristicas_condominio: data.caracteristicas_condominio || [],
           opcoes_negociacao: data.opcoes_negociacao || []
-        }));
+        });
 
-        const existingImages = (data.imoveis_fotos || [])
-          .sort((a: ImovelFoto, b: ImovelFoto) => a.ordem - b.ordem)
-          .map((img: ImovelFoto) => ({
-            id: img.id || Math.random().toString(),
+        // Reidratação das fotos
+        const existingPhotos = (data.imoveis_fotos || [])
+          .sort((a: any, b: any) => a.ordem - b.ordem)
+          .map((img: any) => ({
+            id: img.id,
             file: null,
             preview: img.url,
-            url: img.url
+            url: img.url,
+            isNew: false
           }));
-        setImages(existingImages);
+        setPhotos(existingPhotos);
       }
-    } catch (err: any) {
-      console.error('Erro ao carregar imóvel:', err.message);
+    } catch (err) {
+      console.error('Erro ao carregar:', err);
+      alert('Erro ao recuperar dados do imóvel.');
     } finally {
       setFetching(false);
     }
   };
 
+  const handleFileSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newFiles = Array.from(e.target.files).map(file => ({
+        id: Math.random().toString(36).substr(2, 9),
+        file,
+        preview: URL.createObjectURL(file),
+        isNew: true
+      }));
+      setPhotos(prev => [...prev, ...newFiles].slice(0, 15));
+    }
+  };
+
+  const removePhoto = (index: number) => {
+    setPhotos(prev => {
+      const item = prev[index];
+      if (item.isNew) URL.revokeObjectURL(item.preview);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  // Drag and Drop Logic
   const onDragStart = (index: number) => setDraggedIndex(index);
   const onDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault();
     if (draggedIndex === null || draggedIndex === index) return;
-    const newImages = [...images];
-    const item = newImages.splice(draggedIndex, 1)[0];
-    newImages.splice(index, 0, item);
+    const newPhotos = [...photos];
+    const item = newPhotos.splice(draggedIndex, 1)[0];
+    newPhotos.splice(index, 0, item);
     setDraggedIndex(index);
-    setImages(newImages);
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const filesArray = Array.from(e.target.files);
-      const newItems = filesArray.map(file => ({
-        id: Math.random().toString(36).substr(2, 9),
-        file,
-        preview: URL.createObjectURL(file)
-      }));
-      setImages(prev => [...prev, ...newItems]);
-    }
-  };
-
-  const removeImage = (index: number) => {
-    setImages(prev => {
-      const newImages = [...prev];
-      if (!newImages[index].url) {
-        URL.revokeObjectURL(newImages[index].preview);
-      }
-      newImages.splice(index, 1);
-      return newImages;
-    });
+    setPhotos(newPhotos);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.titulo) return alert('Título é obrigatório.');
     setLoading(true);
 
     try {
-      const slug = formData.titulo.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '-');
-      
-      const payload = {
-        ...formData,
-        slug,
-        imoveis_fotos: undefined // Remove do payload de upsert para evitar erro de coluna
-      };
-
-      const { data: imovelData, error: imovelError } = await supabase
+      // 1. Salvar Imóvel (Upsert)
+      const { data: savedImovel, error: imovelError } = await supabase
         .from('imoveis')
-        .upsert(payload as any)
+        .upsert({ 
+          ...formData, 
+          slug: formData.titulo?.toLowerCase().replace(/ /g, '-'),
+          imoveis_fotos: undefined // Removendo campo relacional para não quebrar o insert
+        } as any)
         .select()
         .single();
 
       if (imovelError) throw imovelError;
-      const imovelId = imovelData.id;
 
-      // Upload de novas imagens para R2
-      const finalImageUrls = await Promise.all(images.map(async (img, idx) => {
-        if (img.url) return { url: img.url, ordem: idx };
+      // 2. Upload de NOVAS fotos para o R2 via Worker
+      const photoPromises = photos.map(async (photo, index) => {
+        if (!photo.isNew) return { url: photo.url!, ordem: index };
 
-        const ext = img.file!.name.split('.').pop();
-        const fileName = `prop_${imovelId}_${Date.now()}_${idx}.${ext}`;
-
-        // Chamada ao Worker com tratamento de erro robusto
-        const response = await fetch(`${WORKER_URL}/${fileName}`, {
+        const fileName = `prop_${savedImovel.id}_${Date.now()}_${index}.jpg`;
+        const uploadResponse = await fetch(`${WORKER_URL}/${fileName}`, {
           method: 'PUT',
-          body: img.file,
-          headers: { 'Content-Type': img.file!.type }
-        }).catch(() => { throw new Error('Não foi possível conectar ao Worker R2. Verifique o VITE_WORKER_URL.')});
+          body: photo.file,
+          headers: { 'Content-Type': photo.file!.type }
+        });
 
-        if (!response.ok) throw new Error('Falha no upload para o R2 via Worker.');
-        const { url } = await response.json();
-        return { url, ordem: idx };
-      }));
+        if (!uploadResponse.ok) throw new Error(`Erro no Worker: ${uploadResponse.statusText}`);
+        const { url } = await uploadResponse.json();
+        return { url, ordem: index };
+      });
 
-      // Sincronização de fotos: Deleta as antigas e insere as novas para garantir ordem
-      await supabase.from('imoveis_fotos').delete().eq('imovel_id', imovelId);
+      const uploadedPhotos = await Promise.all(photoPromises);
+
+      // 3. Atualizar Tabela de Fotos (Delete & Insert para simplificar ordem)
+      await supabase.from('imoveis_fotos').delete().eq('imovel_id', savedImovel.id);
       
-      const photosPayload = finalImageUrls.map((img, idx) => ({
-        imovel_id: imovelId,
-        url: img.url,
-        ordem: idx,
-        is_capa: idx === 0
-      }));
+      const { error: photosError } = await supabase.from('imoveis_fotos').insert(
+        uploadedPhotos.map((p, idx) => ({
+          imovel_id: savedImovel.id,
+          url: p.url,
+          ordem: idx,
+          is_capa: idx === 0
+        }))
+      );
 
-      const { error: photosError } = await supabase.from('imoveis_fotos').insert(photosPayload);
       if (photosError) throw photosError;
 
       alert('Imóvel salvo com sucesso!');
       navigate('/imoveis');
-
     } catch (err: any) {
-      alert(`Erro: ${err.message}`);
+      alert(`Erro ao salvar: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  if (fetching) return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-      <div className="flex flex-col items-center gap-4">
-        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Recuperando Dados...</p>
-      </div>
-    </div>
-  );
+  if (fetching) return <div className="p-20 text-center font-black uppercase tracking-widest text-slate-300">Carregando Dados...</div>;
 
   return (
-    <div className="min-h-screen bg-[#FDFDFD] flex font-['Inter',_sans-serif] antialiased">
+    <div className="min-h-screen bg-[#FDFDFD] flex">
       <Sidebar />
       <div className="flex-1 lg:ml-64 flex flex-col min-w-0">
         
-        <header className="h-20 w-full bg-white/70 backdrop-blur-xl border-b border-slate-100/80 flex items-center px-8 md:px-12 justify-between sticky top-0 z-40">
-          <div className="flex items-center gap-4">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">
-              {id ? 'EDITAR IMÓVEL' : 'NOVO CADASTRO'}
-            </span>
-          </div>
+        <header className="h-20 w-full bg-white/70 backdrop-blur-xl border-b border-slate-100 flex items-center px-12 justify-between sticky top-0 z-40">
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">
+            {id ? 'Edição de Imóvel' : 'Cadastro de Novo Imóvel'}
+          </span>
           <div className="flex gap-4">
-            <button type="button" onClick={() => navigate('/imoveis')} className="px-6 py-3 bg-white border border-slate-200 text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl">Cancelar</button>
-            <button 
-              form="imovel-form" 
-              disabled={loading}
-              className="px-10 py-3 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all flex items-center gap-2"
-            >
-              {loading ? 'SALVANDO...' : 'SALVAR'}
+            <button onClick={() => navigate('/imoveis')} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-400 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-50">Cancelar</button>
+            <button form="main-form" disabled={loading} className="px-8 py-2.5 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-indigo-100 hover:bg-indigo-700 disabled:opacity-50">
+              {loading ? 'Processando...' : 'Salvar Imóvel'}
             </button>
           </div>
         </header>
 
-        <main className="p-8 md:p-12 max-w-[1400px] mx-auto w-full">
-          <form id="imovel-form" onSubmit={handleSubmit} className="grid grid-cols-1 xl:grid-cols-12 gap-10">
+        <main className="p-12 max-w-[1400px] mx-auto w-full">
+          <form id="main-form" onSubmit={handleSubmit} className="grid grid-cols-1 xl:grid-cols-12 gap-12">
             
+            {/* Coluna Dados */}
             <div className="xl:col-span-8 space-y-10">
-              {/* Seção 1: Básicos */}
+              
               <section className="bg-white rounded-[2.5rem] border border-slate-100 p-10 space-y-8 shadow-sm">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-slate-950 rounded-2xl flex items-center justify-center text-white font-black text-sm">1</div>
-                  <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em]">Básico & Localização</h3>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Título*</label>
-                    <input required value={formData.titulo || ''} onChange={e => setFormData({...formData, titulo: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Bairro</label>
-                    <input value={formData.bairro || ''} onChange={e => setFormData({...formData, bairro: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-6">
-                   <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Cidade</label>
-                    <input value={formData.cidade || ''} onChange={e => setFormData({...formData, cidade: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">UF</label>
-                    <input maxLength={2} value={formData.uf || ''} onChange={e => setFormData({...formData, uf: e.target.value.toUpperCase()})} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Área m²</label>
-                    <input type="number" value={formData.area_m2 || 0} onChange={e => setFormData({...formData, area_m2: Number(e.target.value)})} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold" />
-                  </div>
-                </div>
-              </section>
-
-              {/* Seção 2: Negociação - GARANTE QUE CAMPOS NÃO SOMEM */}
-              <section className="bg-white rounded-[2.5rem] border border-slate-100 p-10 space-y-8 shadow-sm">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-slate-950 rounded-2xl flex items-center justify-center text-white font-black text-sm">2</div>
-                  <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em]">Condições & Valores</h3>
-                </div>
-                
+                <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em] flex items-center gap-3">
+                  <div className="w-8 h-8 bg-slate-950 rounded-xl flex items-center justify-center text-white text-xs">01</div>
+                  Identificação e Status
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Finalidade</label>
-                    <select value={formData.finalidade} onChange={e => setFormData({...formData, finalidade: e.target.value as any})} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-black">
-                      <option value="venda">VENDA</option>
-                      <option value="locacao">LOCAÇÃO</option>
-                      <option value="venda_locacao">AMBOS</option>
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Ref. Interna</label>
+                    <input value={formData.referencia || ''} onChange={e => setFormData({...formData, referencia: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold" placeholder="EX: REF-001" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Código Sistema</label>
+                    <input readOnly value={formData.codigo_imovel} className="w-full px-5 py-3.5 bg-slate-100 border border-slate-100 rounded-2xl text-xs font-black text-slate-400" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Status</label>
+                    <select value={formData.status_imovel} onChange={e => setFormData({...formData, status_imovel: e.target.value as any})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold">
+                      <option value="Disponível">Disponível</option>
+                      <option value="Vendido">Vendido</option>
+                      <option value="Suspenso">Suspenso</option>
                     </select>
                   </div>
-                  
-                  {/* Renderização Condicional Protegida */}
-                  {(formData.finalidade === 'venda' || formData.finalidade === 'venda_locacao') && (
-                    <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Venda (R$)</label>
-                      <input type="number" value={formData.valor_venda || 0} onChange={e => setFormData({...formData, valor_venda: Number(e.target.value)})} className="w-full px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-xl text-[10px] font-black text-indigo-600" />
-                    </div>
-                  )}
-
-                  {(formData.finalidade === 'locacao' || formData.finalidade === 'venda_locacao') && (
-                    <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Locação (R$)</label>
-                      <input type="number" value={formData.valor_locacao || 0} onChange={e => setFormData({...formData, valor_locacao: Number(e.target.value)})} className="w-full px-4 py-3 bg-emerald-50 border border-emerald-100 rounded-xl text-[10px] font-black text-emerald-600" />
-                    </div>
-                  )}
                 </div>
               </section>
 
-              {/* Seção 3: Características */}
               <section className="bg-white rounded-[2.5rem] border border-slate-100 p-10 space-y-8 shadow-sm">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-slate-950 rounded-2xl flex items-center justify-center text-white font-black text-sm">3</div>
-                  <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em]">Recursos do Imóvel</h3>
+                <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em] flex items-center gap-3">
+                   <div className="w-8 h-8 bg-slate-950 rounded-xl flex items-center justify-center text-white text-xs">02</div>
+                   Dados da Propriedade
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Título do Anúncio</label>
+                    <input required value={formData.titulo || ''} onChange={e => setFormData({...formData, titulo: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Preço (R$)</label>
+                    <input type="number" value={formData.valor_venda || 0} onChange={e => setFormData({...formData, valor_venda: Number(e.target.value)})} className="w-full px-5 py-3.5 bg-indigo-50 border border-indigo-100 rounded-2xl text-xs font-black text-indigo-600" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Área (m²)</label>
+                    <input type="number" value={formData.area_m2 || 0} onChange={e => setFormData({...formData, area_m2: Number(e.target.value)})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold" />
+                  </div>
                 </div>
-                
-                <div className="flex flex-wrap gap-2">
-                  {LISTA_CARACTERISTICAS_IMOVEL.map(feat => (
-                    <button 
-                      key={feat}
-                      type="button"
-                      onClick={() => {
-                        const current = formData.caracteristicas_imovel || [];
-                        const next = current.includes(feat) ? current.filter(f => f !== feat) : [...current, feat];
-                        setFormData({...formData, caracteristicas_imovel: next});
-                      }}
-                      className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase border transition-all ${
-                        formData.caracteristicas_imovel?.includes(feat) ? 'bg-slate-950 text-white border-slate-950 shadow-lg' : 'bg-slate-50 text-slate-400 border-slate-100'
-                      }`}
-                    >
-                      {feat}
-                    </button>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                  {['dormitorios', 'suites', 'banheiros', 'vagas_garagem'].map(field => (
+                    <div key={field} className="space-y-2">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">{field.replace('_', ' ')}</label>
+                      <input type="number" value={(formData as any)[field] || 0} onChange={e => setFormData({...formData, [field]: Number(e.target.value)})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold" />
+                    </div>
                   ))}
+                </div>
+              </section>
+
+              <section className="bg-white rounded-[2.5rem] border border-slate-100 p-10 space-y-8 shadow-sm">
+                <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em] flex items-center gap-3">
+                   <div className="w-8 h-8 bg-slate-950 rounded-xl flex items-center justify-center text-white text-xs">03</div>
+                   Características & Negociação
+                </h3>
+                
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Características do Imóvel</label>
+                  <div className="flex flex-wrap gap-2">
+                    {LISTA_CARACTERISTICAS_IMOVEL.map(item => (
+                      <button type="button" key={item} onClick={() => {
+                        const current = formData.caracteristicas_imovel || [];
+                        setFormData({...formData, caracteristicas_imovel: current.includes(item) ? current.filter(i => i !== item) : [...current, item]});
+                      }} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase border transition-all ${formData.caracteristicas_imovel?.includes(item) ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+                        {item}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </section>
             </div>
 
-            {/* Coluna Lateral: Galeria & Status */}
-            <div className="xl:col-span-4 space-y-8">
-              <section className="bg-white rounded-[3rem] border border-slate-100 p-8 shadow-xl flex flex-col min-h-[600px]">
+            {/* Coluna Galeria */}
+            <div className="xl:col-span-4 space-y-10">
+              <section className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-xl flex flex-col min-h-[500px]">
                 <div className="flex items-center justify-between mb-8">
-                  <h3 className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Galeria Ordenável</h3>
-                  <span className="text-[9px] font-bold text-slate-300 uppercase">{images.length} fotos</span>
-                </div>
-
-                <div 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-slate-100 rounded-[2.5rem] p-8 text-center cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/30 transition-all group mb-8"
-                >
-                  <input ref={fileInputRef} type="file" multiple accept="image/*" className="hidden" onChange={handleFileChange} />
-                  <div className="text-slate-300 group-hover:text-indigo-500 transition-colors flex flex-col items-center">
+                  <h3 className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Galeria (Até 15)</h3>
+                  <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
                     <Icons.Plus />
-                    <p className="text-[9px] font-black uppercase tracking-widest mt-2">Adicionar Arquivos</p>
-                  </div>
+                  </button>
+                  <input ref={fileInputRef} type="file" multiple accept="image/*" className="hidden" onChange={handleFileSelection} />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  {images.map((img, idx) => (
+                  {photos.map((photo, idx) => (
                     <div 
-                      key={img.id}
+                      key={photo.id}
                       draggable
                       onDragStart={() => onDragStart(idx)}
                       onDragOver={(e) => onDragOver(e, idx)}
                       onDragEnd={() => setDraggedIndex(null)}
-                      className="relative aspect-square rounded-[1.5rem] bg-slate-50 border border-slate-100 overflow-hidden cursor-move group shadow-sm transition-all hover:ring-2 hover:ring-indigo-600/20"
+                      className="relative aspect-square bg-slate-50 border border-slate-100 rounded-2xl overflow-hidden cursor-move group"
                     >
-                      <img src={img.preview} className="w-full h-full object-cover" alt="" />
-                      <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded-lg text-[8px] font-black text-white uppercase tracking-tighter">
+                      <img src={photo.preview} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <button type="button" onClick={() => removePhoto(idx)} className="p-2 bg-rose-500 text-white rounded-xl shadow-lg">
+                          <Icons.Trash />
+                        </button>
+                      </div>
+                      <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg text-[8px] font-black text-slate-900 uppercase">
                         {idx === 0 ? 'CAPA' : `#${idx + 1}`}
                       </div>
-                      <button 
-                        type="button"
-                        onClick={() => removeImage(idx)}
-                        className="absolute top-2 right-2 p-1.5 bg-white/90 text-rose-500 rounded-lg shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Icons.Trash />
-                      </button>
                     </div>
                   ))}
                 </div>
+
+                {photos.length === 0 && (
+                  <div className="flex-1 border-2 border-dashed border-slate-100 rounded-3xl flex flex-col items-center justify-center text-slate-300">
+                    <Icons.Building />
+                    <p className="text-[9px] font-black uppercase tracking-widest mt-4">Nenhuma Foto</p>
+                  </div>
+                )}
               </section>
 
-              <section className="bg-slate-950 rounded-[2.5rem] p-8 text-white space-y-6 shadow-2xl">
-                 <h3 className="text-[10px] font-black uppercase opacity-40 tracking-[0.4em]">Configurações Finais</h3>
-                 <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-widest">Ativar Anúncio</span>
-                    <div 
-                      onClick={() => setFormData({...formData, ativo: !formData.ativo})}
-                      className={`w-10 h-5 rounded-full relative cursor-pointer transition-colors ${formData.ativo ? 'bg-indigo-600' : 'bg-white/10'}`}
-                    >
-                      <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${formData.ativo ? 'right-1' : 'left-1'}`}></div>
-                    </div>
-                 </div>
-                 <div className="flex items-center justify-between border-t border-white/5 pt-6">
-                    <span className="text-[10px] font-black uppercase tracking-widest">Destaque Home</span>
-                    <div 
-                      onClick={() => setFormData({...formData, destaque: !formData.destaque})}
-                      className={`w-10 h-5 rounded-full relative cursor-pointer transition-colors ${formData.destaque ? 'bg-amber-500' : 'bg-white/10'}`}
-                    >
-                      <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${formData.destaque ? 'right-1' : 'left-1'}`}></div>
-                    </div>
-                 </div>
+              <section className="bg-slate-900 rounded-[2.5rem] p-8 text-white space-y-6">
+                <h3 className="text-[10px] font-black uppercase tracking-widest opacity-50">Configurações de Marketing</h3>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-widest">Ativo no Site</span>
+                  <div onClick={() => setFormData({...formData, ativo: !formData.ativo})} className={`w-10 h-5 rounded-full relative cursor-pointer transition-colors ${formData.ativo ? 'bg-indigo-500' : 'bg-white/10'}`}>
+                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${formData.ativo ? 'right-1' : 'left-1'}`}></div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-widest">Destaque Home</span>
+                  <div onClick={() => setFormData({...formData, destaque: !formData.destaque})} className={`w-10 h-5 rounded-full relative cursor-pointer transition-colors ${formData.destaque ? 'bg-amber-500' : 'bg-white/10'}`}>
+                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${formData.destaque ? 'right-1' : 'left-1'}`}></div>
+                  </div>
+                </div>
               </section>
             </div>
           </form>
