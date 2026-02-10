@@ -20,7 +20,8 @@ const ImovelForm: React.FC = () => {
   const [fetching, setFetching] = useState(false);
   const [images, setImages] = useState<PreviewImage[]>([]);
 
-  const [formData, setFormData] = useState<Partial<Imovel>>({
+  // Inicialização robusta do estado para evitar undefined em campos controlados
+  const [formData, setFormData] = useState<Partial<Imovel & { opcoes_negociacao: string[] }>>({
     codigo_imovel: '',
     referencia: '',
     titulo: '',
@@ -29,8 +30,8 @@ const ImovelForm: React.FC = () => {
     tipo_imovel: 'Apartamento',
     status_imovel: 'Disponível',
     finalidade: 'venda',
-    valor_venda: null,
-    valor_locacao: null,
+    valor_venda: 0,
+    valor_locacao: 0,
     dormitorios: 0,
     suites: 0,
     banheiros: 0,
@@ -42,7 +43,8 @@ const ImovelForm: React.FC = () => {
     destaque: false,
     ativo: true,
     caracteristicas_imovel: [],
-    caracteristicas_condominio: []
+    caracteristicas_condominio: [],
+    opcoes_negociacao: []
   });
 
   useEffect(() => {
@@ -72,8 +74,25 @@ const ImovelForm: React.FC = () => {
         .select('*, imoveis_fotos(*)')
         .eq('id', id)
         .single();
+      
       if (error) throw error;
-      setFormData(data);
+      
+      // Sanitização de dados vindos do banco para garantir arrays e números
+      if (data) {
+        setFormData({
+          ...data,
+          valor_venda: data.valor_venda || 0,
+          valor_locacao: data.valor_locacao || 0,
+          dormitorios: data.dormitorios || 0,
+          suites: data.suites || 0,
+          banheiros: data.banheiros || 0,
+          vagas_garagem: data.vagas_garagem || 0,
+          area_m2: data.area_m2 || 0,
+          caracteristicas_imovel: data.caracteristicas_imovel || [],
+          caracteristicas_condominio: data.caracteristicas_condominio || [],
+          opcoes_negociacao: data.opcoes_negociacao || []
+        });
+      }
     } catch (err) {
       console.error('Erro ao buscar imóvel:', err);
       alert('Erro ao carregar os dados.');
@@ -94,11 +113,11 @@ const ImovelForm: React.FC = () => {
       .replace(/--+/g, '-');
   };
 
-  const handleToggleChip = (listName: 'caracteristicas_imovel' | 'caracteristicas_condominio', value: string) => {
+  const handleToggleChip = (listName: 'caracteristicas_imovel' | 'caracteristicas_condominio' | 'opcoes_negociacao', value: string) => {
     setFormData(prev => {
-      const currentList = prev[listName] || [];
+      const currentList = (prev as any)[listName] || [];
       const newList = currentList.includes(value)
-        ? currentList.filter(item => item !== value)
+        ? currentList.filter((item: string) => item !== value)
         : [...currentList, value];
       return { ...prev, [listName]: newList };
     });
@@ -135,9 +154,9 @@ const ImovelForm: React.FC = () => {
     setLoading(true);
     try {
       const slug = slugify(formData.titulo);
-      const payload = { ...formData, slug };
+      const { imoveis_fotos, ...pureData } = formData as any; // Remove fotos do payload de insert
+      const payload = { ...pureData, slug };
       
-      // 1. Upsert do Imóvel
       const { data: imovelData, error: imovelError } = await supabase
         .from('imoveis')
         .upsert(payload)
@@ -148,7 +167,6 @@ const ImovelForm: React.FC = () => {
 
       const imovelId = imovelData.id;
 
-      // 2. Upload de fotos se houver novas
       if (images.length > 0) {
         for (let i = 0; i < images.length; i++) {
           const img = images[i];
@@ -202,7 +220,7 @@ const ImovelForm: React.FC = () => {
           <div className="hidden md:flex items-center gap-2 text-slate-300">
             <span className="text-[10px] font-black uppercase tracking-[0.2em] cursor-pointer" onClick={() => navigate('/imoveis')}>Imóveis</span>
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7" /></svg>
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">NOVA PROPRIEDADE</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">EDIÇÃO / CADASTRO</span>
           </div>
           <div className="flex gap-4">
             <button type="button" onClick={() => navigate('/imoveis')} className="px-6 py-3 bg-white border border-slate-200 text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl">Cancelar</button>
@@ -216,7 +234,7 @@ const ImovelForm: React.FC = () => {
           <form id="imovel-form" onSubmit={handleSubmit} className="grid grid-cols-1 xl:grid-cols-12 gap-10">
             
             <div className="xl:col-span-8 space-y-10">
-              {/* Seção 1 */}
+              {/* 1. Identificação */}
               <section className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-10 space-y-8">
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center text-white font-black text-sm">1</div>
@@ -251,7 +269,7 @@ const ImovelForm: React.FC = () => {
                 </div>
               </section>
 
-              {/* Seção 2 */}
+              {/* 2. Dados da Propriedade */}
               <section className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-10 space-y-8">
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center text-white font-black text-sm">2</div>
@@ -262,6 +280,7 @@ const ImovelForm: React.FC = () => {
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Título do Anúncio*</label>
                     <input required type="text" value={formData.titulo || ''} onChange={e => setFormData({...formData, titulo: e.target.value})} className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold" />
                   </div>
+                  
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
                     <div className="space-y-2">
                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tipo</label>
@@ -276,21 +295,104 @@ const ImovelForm: React.FC = () => {
                     </div>
                     <div className="space-y-2">
                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Área m²</label>
-                      <input type="number" value={formData.area_m2 || ''} onChange={e => setFormData({...formData, area_m2: Number(e.target.value)})} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold" />
+                      <input type="number" value={formData.area_m2 || 0} onChange={e => setFormData({...formData, area_m2: Number(e.target.value)})} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Venda (R$)</label>
-                      <input type="number" value={formData.valor_venda || ''} onChange={e => setFormData({...formData, valor_venda: Number(e.target.value)})} className="w-full px-5 py-3 bg-indigo-50 border border-indigo-100 rounded-xl text-xs font-black text-indigo-600" />
+                      <input type="number" value={formData.valor_venda || 0} onChange={e => setFormData({...formData, valor_venda: Number(e.target.value)})} className="w-full px-5 py-3 bg-indigo-50 border border-indigo-100 rounded-xl text-xs font-black text-indigo-600" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Locação (R$)</label>
-                      <input type="number" value={formData.valor_locacao || ''} onChange={e => setFormData({...formData, valor_locacao: Number(e.target.value)})} className="w-full px-5 py-3 bg-emerald-50 border border-emerald-100 rounded-xl text-xs font-black text-emerald-600" />
+                      <input type="number" value={formData.valor_locacao || 0} onChange={e => setFormData({...formData, valor_locacao: Number(e.target.value)})} className="w-full px-5 py-3 bg-emerald-50 border border-emerald-100 rounded-xl text-xs font-black text-emerald-600" />
+                    </div>
+                  </div>
+
+                  {/* RESTAURAÇÃO: Dormitórios, Suites, Banheiros, Vagas */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Dormitórios</label>
+                      <input type="number" value={formData.dormitorios || 0} onChange={e => setFormData({...formData, dormitorios: Number(e.target.value)})} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-center" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Suítes</label>
+                      <input type="number" value={formData.suites || 0} onChange={e => setFormData({...formData, suites: Number(e.target.value)})} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-center" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Banheiros</label>
+                      <input type="number" value={formData.banheiros || 0} onChange={e => setFormData({...formData, banheiros: Number(e.target.value)})} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-center" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vagas Garagem</label>
+                      <input type="number" value={formData.vagas_garagem || 0} onChange={e => setFormData({...formData, vagas_garagem: Number(e.target.value)})} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-center" />
                     </div>
                   </div>
                 </div>
               </section>
 
-              {/* Chips Características Imóvel */}
+              {/* 3. Localização */}
+              <section className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-10 space-y-8">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center text-white font-black text-sm">3</div>
+                  <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em]">LOCALIZAÇÃO</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Bairro</label>
+                    <input type="text" value={formData.bairro || ''} onChange={e => setFormData({...formData, bairro: e.target.value})} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Cidade</label>
+                    <input type="text" value={formData.cidade || ''} onChange={e => setFormData({...formData, cidade: e.target.value})} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">UF</label>
+                    <input type="text" maxLength={2} value={formData.uf || ''} onChange={e => setFormData({...formData, uf: e.target.value.toUpperCase()})} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-center" />
+                  </div>
+                </div>
+              </section>
+
+              {/* RESTAURAÇÃO: Marketing e Negociação (Chips e Descrição) */}
+              <section className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-10 space-y-8">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center text-white font-black text-sm">4</div>
+                  <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em]">MARKETING & NEGOCIAÇÃO</h3>
+                </div>
+                
+                <div className="space-y-6">
+                  <div className="space-y-3">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Descrição Comercial</label>
+                    <textarea 
+                      rows={6} 
+                      value={formData.descricao || ''} 
+                      onChange={e => setFormData({...formData, descricao: e.target.value})}
+                      className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-medium text-slate-600 outline-none focus:bg-white focus:border-indigo-200 transition-all resize-none"
+                      placeholder="Descreva os pontos fortes do imóvel..."
+                    />
+                  </div>
+
+                  <div className="space-y-4">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Formas de Negociação</label>
+                    <div className="flex flex-wrap gap-2">
+                      {[...LISTA_PAGAMENTO, ...LISTA_GARANTIAS].map(item => (
+                        <button 
+                          key={item} 
+                          type="button" 
+                          onClick={() => handleToggleChip('opcoes_negociacao', item)}
+                          className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${
+                            formData.opcoes_negociacao?.includes(item) 
+                              ? 'bg-slate-900 border-slate-900 text-white' 
+                              : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-slate-300'
+                          }`}
+                        >
+                          {item}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* Chips Características */}
               <section className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-10 space-y-8">
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center text-white font-black text-sm">6</div>
@@ -305,7 +407,6 @@ const ImovelForm: React.FC = () => {
                 </div>
               </section>
 
-              {/* Chips Características Condomínio */}
               <section className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-10 space-y-8">
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center text-white font-black text-sm">7</div>
