@@ -3,9 +3,14 @@ import React from 'react';
 import { StatCardProps } from '../types';
 import { Icons } from '../constants';
 
-const StatCard: React.FC<StatCardProps> = ({ title, value, change, isPositive, icon }) => {
+const StatCard: React.FC<StatCardProps> = ({ title, value, change, isPositive, icon, onClick }) => {
   return (
-    <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.04)] hover:-translate-y-1 transition-all duration-500 group">
+    <div 
+      onClick={onClick}
+      className={`bg-white p-8 rounded-[2rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.04)] hover:-translate-y-1 transition-all duration-500 group ${
+        onClick ? 'cursor-pointer hover:scale-[1.02] transition-transform' : ''
+      }`}
+    >
       <div className="flex justify-between items-start mb-8">
         <div className="p-4 bg-slate-50 text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 rounded-2xl transition-colors duration-500">
           {icon}
