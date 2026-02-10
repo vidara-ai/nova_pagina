@@ -56,6 +56,14 @@ const App: React.FC = () => {
             } 
           />
           <Route 
+            path="/imoveis/:id" 
+            element={
+              <PrivateRoute>
+                <ImovelForm />
+              </PrivateRoute>
+            } 
+          />
+          <Route 
             path="/configuracoes" 
             element={
               <PrivateRoute>
