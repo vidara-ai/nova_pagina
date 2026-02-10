@@ -1,9 +1,17 @@
 
 import React from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Icons } from '../constants';
 
-const SidebarItem: React.FC<{ icon: React.ReactNode; label: string; active?: boolean }> = ({ icon, label, active }) => (
-  <div className={`flex items-center gap-4 px-6 py-4 rounded-2xl cursor-pointer transition-all duration-300 group ${
+const SidebarItem: React.FC<{ 
+  icon: React.ReactNode; 
+  label: string; 
+  active?: boolean;
+  onClick?: () => void;
+}> = ({ icon, label, active, onClick }) => (
+  <div 
+    onClick={onClick}
+    className={`flex items-center gap-4 px-6 py-4 rounded-2xl cursor-pointer transition-all duration-300 group ${
     active 
       ? 'bg-slate-950 text-white shadow-2xl shadow-slate-200' 
       : 'text-slate-400 hover:bg-slate-50 hover:text-slate-900'
@@ -16,10 +24,16 @@ const SidebarItem: React.FC<{ icon: React.ReactNode; label: string; active?: boo
 );
 
 const Sidebar: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-slate-100/80 p-8 hidden lg:flex flex-col gap-12 z-50">
       {/* Brand Logo */}
-      <div className="flex items-center gap-3 px-2 cursor-pointer group">
+      <div 
+        onClick={() => navigate('/')}
+        className="flex items-center gap-3 px-2 cursor-pointer group"
+      >
         <div className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg shadow-indigo-100 group-hover:rotate-6 transition-transform">
           N
         </div>
@@ -31,12 +45,22 @@ const Sidebar: React.FC = () => {
       {/* Main Navigation */}
       <nav className="flex-1 flex flex-col gap-3">
         <div className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em] mb-4 px-6">Geral</div>
-        <SidebarItem icon={<Icons.Dashboard />} label="Resumo" active />
+        <SidebarItem 
+          icon={<Icons.Dashboard />} 
+          label="Resumo" 
+          active={location.pathname === '/dashboard'} 
+          onClick={() => navigate('/dashboard')}
+        />
         <SidebarItem icon={<Icons.Users />} label="Leads" />
         <SidebarItem icon={<Icons.Orders />} label="Propriedades" />
         
         <div className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em] mb-4 mt-8 px-6">Sistema</div>
-        <SidebarItem icon={<Icons.Settings />} label="Ajustes" />
+        <SidebarItem 
+          icon={<Icons.Settings />} 
+          label="Ajustes" 
+          active={location.pathname === '/configuracoes'}
+          onClick={() => navigate('/configuracoes')}
+        />
       </nav>
 
       {/* Account Widget */}
