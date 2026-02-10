@@ -58,8 +58,8 @@ const Sidebar: React.FC = () => {
           onClick={() => navigate('/leads')}
         />
         <SidebarItem 
-          icon={<Icons.Orders />} 
-          label="Propriedades" 
+          icon={<Icons.Building />} 
+          label="Imóveis" 
           active={location.pathname.startsWith('/imoveis')}
           onClick={() => navigate('/imoveis')}
         />
