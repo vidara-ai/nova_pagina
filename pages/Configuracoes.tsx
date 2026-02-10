@@ -6,53 +6,53 @@ import { supabase } from '../services/supabase';
 
 interface AppConfig {
   id?: string;
-  nome_imobiliaria: string;
-  esquema_cores: string;
-  whatsapp_header_numero: string;
-  whatsapp_header_mensagem: string;
-  whatsapp_flutuante_numero: string;
-  whatsapp_flutuante_mensagem: string;
-  whatsapp_pagina_numero: string;
-  whatsapp_pagina_mensagem: string;
+  header_nome_site: string;
+  color_scheme: string;
+  whatsapp_header: string;
+  whatsapp_msg_header: string;
+  whatsapp_floating: string;
+  whatsapp_msg_floating: string;
+  whatsapp_imovel: string;
+  whatsapp_msg_imovel: string;
   hero_titulo: string;
   hero_subtitulo: string;
-  hero_imagem_path: string;
+  hero_bg_desktop_url: string;
   footer_titulo: string;
   footer_telefone: string;
   footer_bio: string;
   footer_form_titulo: string;
   footer_form_subtitulo: string;
-  texto_creci: string;
-  instagram_url: string;
-  tiktok_url: string;
-  twitter_url: string;
-  linkedin_url: string;
-  copyright_text: string;
+  footer_creci: string;
+  footer_instagram_url: string;
+  footer_tiktok_url: string;
+  footer_x_url: string;
+  footer_linkedin_url: string;
+  footer_copyright: string;
 }
 
 const INITIAL_STATE: AppConfig = {
-  nome_imobiliaria: '',
-  esquema_cores: 'indigo',
-  whatsapp_header_numero: '',
-  whatsapp_header_mensagem: '',
-  whatsapp_flutuante_numero: '',
-  whatsapp_flutuante_mensagem: '',
-  whatsapp_pagina_numero: '',
-  whatsapp_pagina_mensagem: '',
+  header_nome_site: '',
+  color_scheme: 'indigo',
+  whatsapp_header: '',
+  whatsapp_msg_header: '',
+  whatsapp_floating: '',
+  whatsapp_msg_floating: '',
+  whatsapp_imovel: '',
+  whatsapp_msg_imovel: '',
   hero_titulo: '',
   hero_subtitulo: '',
-  hero_imagem_path: '',
+  hero_bg_desktop_url: '',
   footer_titulo: '',
   footer_telefone: '',
   footer_bio: '',
   footer_form_titulo: '',
   footer_form_subtitulo: '',
-  texto_creci: '',
-  instagram_url: '',
-  tiktok_url: '',
-  twitter_url: '',
-  linkedin_url: '',
-  copyright_text: ''
+  footer_creci: '',
+  footer_instagram_url: '',
+  footer_tiktok_url: '',
+  footer_x_url: '',
+  footer_linkedin_url: '',
+  footer_copyright: ''
 };
 
 const Configuracoes: React.FC = () => {
@@ -76,9 +76,10 @@ const Configuracoes: React.FC = () => {
 
       if (error) throw error;
       if (data) {
+        // Alinhamento direto do retorno para o state conforme regra
         setConfig({ ...INITIAL_STATE, ...data });
-        if (data.hero_imagem_path) {
-          const { data: publicUrl } = supabase.storage.from('imoveis').getPublicUrl(data.hero_imagem_path);
+        if (data.hero_bg_desktop_url) {
+          const { data: publicUrl } = supabase.storage.from('imoveis').getPublicUrl(data.hero_bg_desktop_url);
           setHeroPreview(publicUrl.publicUrl);
         }
       }
@@ -112,7 +113,8 @@ const Configuracoes: React.FC = () => {
 
       if (uploadError) throw uploadError;
 
-      setConfig(prev => ({ ...prev, hero_imagem_path: filePath }));
+      // Salva apenas o PATH na coluna correta
+      setConfig(prev => ({ ...prev, hero_bg_desktop_url: filePath }));
     } catch (err: any) {
       alert(`Erro no upload: ${err.message}`);
     } finally {
@@ -127,7 +129,7 @@ const Configuracoes: React.FC = () => {
         .from('configuracoes_site')
         .upsert({
           ...config,
-          id: config.id || undefined, // Mantém o ID se existir para update
+          id: config.id || undefined,
           updated_at: new Date().toISOString()
         });
 
@@ -188,8 +190,8 @@ const Configuracoes: React.FC = () => {
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome da Imobiliária</label>
                 <input 
                   type="text" 
-                  name="nome_imobiliaria"
-                  value={config.nome_imobiliaria}
+                  name="header_nome_site"
+                  value={config.header_nome_site}
                   onChange={handleInputChange}
                   placeholder="Ex: Vitrine Digital"
                   className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-slate-900 outline-none focus:bg-white focus:border-indigo-200 transition-all"
@@ -198,8 +200,8 @@ const Configuracoes: React.FC = () => {
               <div className="space-y-3">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Esquema de Cores</label>
                 <select 
-                  name="esquema_cores"
-                  value={config.esquema_cores}
+                  name="color_scheme"
+                  value={config.color_scheme}
                   onChange={handleInputChange}
                   className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-slate-900 outline-none transition-all cursor-pointer"
                 >
@@ -208,6 +210,7 @@ const Configuracoes: React.FC = () => {
                   <option value="emerald">Emerald Nature</option>
                   <option value="rose">Rose Luxury</option>
                   <option value="amber">Amber Classic</option>
+                  <option value="light">Light Minimal</option>
                 </select>
               </div>
             </div>
@@ -227,11 +230,11 @@ const Configuracoes: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-3">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Número WhatsApp Header</label>
-                    <input type="text" name="whatsapp_header_numero" value={config.whatsapp_header_numero} onChange={handleInputChange} placeholder="Ex: 83999999999" className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:bg-white transition-all" />
+                    <input type="text" name="whatsapp_header" value={config.whatsapp_header} onChange={handleInputChange} placeholder="Ex: 83999999999" className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:bg-white transition-all" />
                   </div>
                   <div className="space-y-3">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Mensagem WhatsApp Header</label>
-                    <input type="text" name="whatsapp_header_mensagem" value={config.whatsapp_header_mensagem} onChange={handleInputChange} placeholder="Olá, gostaria de mais informações..." className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:bg-white transition-all" />
+                    <input type="text" name="whatsapp_msg_header" value={config.whatsapp_msg_header} onChange={handleInputChange} placeholder="Olá, gostaria de mais informações..." className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:bg-white transition-all" />
                   </div>
                 </div>
               </div>
@@ -242,11 +245,11 @@ const Configuracoes: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-3">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Número WhatsApp Botão Flutuante</label>
-                    <input type="text" name="whatsapp_flutuante_numero" value={config.whatsapp_flutuante_numero} onChange={handleInputChange} placeholder="Ex: 83999999999" className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:bg-white transition-all" />
+                    <input type="text" name="whatsapp_floating" value={config.whatsapp_floating} onChange={handleInputChange} placeholder="Ex: 83999999999" className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:bg-white transition-all" />
                   </div>
                   <div className="space-y-3">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Mensagem WhatsApp Botão Flutuante</label>
-                    <input type="text" name="whatsapp_flutuante_mensagem" value={config.whatsapp_flutuante_mensagem} onChange={handleInputChange} placeholder="Estou navegando no site e preciso de ajuda..." className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:bg-white transition-all" />
+                    <input type="text" name="whatsapp_msg_floating" value={config.whatsapp_msg_floating} onChange={handleInputChange} placeholder="Estou navegando no site e preciso de ajuda..." className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:bg-white transition-all" />
                   </div>
                 </div>
               </div>
@@ -257,11 +260,11 @@ const Configuracoes: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-3">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Número WhatsApp Página do Imóvel</label>
-                    <input type="text" name="whatsapp_pagina_numero" value={config.whatsapp_pagina_numero} onChange={handleInputChange} placeholder="Ex: 83999999999" className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:bg-white transition-all" />
+                    <input type="text" name="whatsapp_imovel" value={config.whatsapp_imovel} onChange={handleInputChange} placeholder="Ex: 83999999999" className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:bg-white transition-all" />
                   </div>
                   <div className="space-y-3">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Mensagem WhatsApp Página do Imóvel</label>
-                    <input type="text" name="whatsapp_pagina_mensagem" value={config.whatsapp_pagina_mensagem} onChange={handleInputChange} placeholder="Olá, tenho interesse no imóvel {{titulo}}..." className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:bg-white transition-all" />
+                    <input type="text" name="whatsapp_msg_imovel" value={config.whatsapp_msg_imovel} onChange={handleInputChange} placeholder="Olá, tenho interesse no imóvel {{titulo}}..." className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:bg-white transition-all" />
                   </div>
                   <div className="md:col-span-2 p-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Variáveis Disponíveis:</p>
@@ -370,11 +373,11 @@ const Configuracoes: React.FC = () => {
                 <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Informações Legais</h4>
                 <div className="space-y-3">
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Texto do CRECI</label>
-                  <input type="text" name="texto_creci" value={config.texto_creci} onChange={handleInputChange} placeholder="Ex: CRECI 45678-J" className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:bg-white transition-all" />
+                  <input type="text" name="footer_creci" value={config.footer_creci} onChange={handleInputChange} placeholder="Ex: CRECI 45678-J" className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:bg-white transition-all" />
                 </div>
                 <div className="space-y-3">
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Texto de Copyright (Final)</label>
-                  <input type="text" name="copyright_text" value={config.copyright_text} onChange={handleInputChange} placeholder="Ex: © 2025 Vitrine Digital — Todos os direitos reservados" className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:bg-white transition-all" />
+                  <input type="text" name="footer_copyright" value={config.footer_copyright} onChange={handleInputChange} placeholder="Ex: © 2025 Vitrine Digital — Todos os direitos reservados" className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:bg-white transition-all" />
                 </div>
               </div>
 
@@ -384,19 +387,19 @@ const Configuracoes: React.FC = () => {
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-3">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Instagram URL</label>
-                    <input type="url" name="instagram_url" value={config.instagram_url} onChange={handleInputChange} placeholder="https://instagram.com/..." className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold outline-none focus:bg-white transition-all" />
+                    <input type="url" name="footer_instagram_url" value={config.footer_instagram_url} onChange={handleInputChange} placeholder="https://instagram.com/..." className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold outline-none focus:bg-white transition-all" />
                   </div>
                   <div className="space-y-3">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">TikTok URL</label>
-                    <input type="url" name="tiktok_url" value={config.tiktok_url} onChange={handleInputChange} placeholder="https://tiktok.com/@..." className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold outline-none focus:bg-white transition-all" />
+                    <input type="url" name="footer_tiktok_url" value={config.footer_tiktok_url} onChange={handleInputChange} placeholder="https://tiktok.com/@..." className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold outline-none focus:bg-white transition-all" />
                   </div>
                   <div className="space-y-3">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">X (Twitter) URL</label>
-                    <input type="url" name="twitter_url" value={config.twitter_url} onChange={handleInputChange} placeholder="https://twitter.com/..." className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold outline-none focus:bg-white transition-all" />
+                    <input type="url" name="footer_x_url" value={config.footer_x_url} onChange={handleInputChange} placeholder="https://twitter.com/..." className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold outline-none focus:bg-white transition-all" />
                   </div>
                   <div className="space-y-3">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">LinkedIn URL</label>
-                    <input type="url" name="linkedin_url" value={config.linkedin_url} onChange={handleInputChange} placeholder="https://linkedin.com/in/..." className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold outline-none focus:bg-white transition-all" />
+                    <input type="url" name="footer_linkedin_url" value={config.footer_linkedin_url} onChange={handleInputChange} placeholder="https://linkedin.com/in/..." className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold outline-none focus:bg-white transition-all" />
                   </div>
                 </div>
               </div>
