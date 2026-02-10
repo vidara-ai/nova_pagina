@@ -14,17 +14,6 @@ const Home: React.FC = () => {
       {/* Hero Section com Visual Impactante e Profundidade */}
       <Hero />
 
-      {/* Perfil do Corretor com Estética Institucional Premium */}
-      <CorretorBlock 
-        nome="Marlon Sales"
-        descricao="Transformando a complexa jornada imobiliária em uma experiência de sucesso absoluto. Focado em conectar pessoas a oportunidades exclusivas com expertise estratégica e atendimento humano."
-        creci="4567891011"
-        telefone="83 3221.0008"
-        instagram="https://instagram.com/marlonsales"
-        linkedin="https://linkedin.com/in/marlonsales"
-        tiktok="https://tiktok.com/@marlonsales"
-      />
-
       {/* ÁREA DE RESULTADOS (ESTADO VAZIO) - Design de Placeholder Sofisticado */}
       <section className="max-w-7xl mx-auto px-6 py-32 animate-in fade-in duration-1000">
         <div className="relative group overflow-hidden rounded-[4rem]">
@@ -41,6 +30,17 @@ const Home: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {/* Perfil do Corretor com Estética Institucional Premium - Posicionado após a listagem */}
+      <CorretorBlock 
+        nome="Marlon Sales"
+        descricao="Transformando a complexa jornada imobiliária em uma experiência de sucesso absoluto. Focado em conectar pessoas a oportunidades exclusivas com expertise estratégica e atendimento humano."
+        creci="4567891011"
+        telefone="83 3221.0008"
+        instagram="https://instagram.com/marlonsales"
+        linkedin="https://linkedin.com/in/marlonsales"
+        tiktok="https://tiktok.com/@marlonsales"
+      />
 
       {/* BLOCO “DEFINA SEU OBJETIVO” - UX Refinada com Hover states */}
       <section className="max-w-xl mx-auto px-6 mb-48">
