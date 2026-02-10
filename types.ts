@@ -31,6 +31,7 @@ export interface Imovel {
   ativo: boolean;
   caracteristicas_imovel: string[];
   caracteristicas_condominio: string[];
+  opcoes_negociacao: string[]; // Coluna adicionada
   imoveis_fotos?: ImovelFoto[];
 }
 
