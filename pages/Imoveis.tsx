@@ -19,18 +19,15 @@ const Imoveis: React.FC = () => {
   async function fetchImoveis() {
     try {
       setLoading(true);
-      // Explicitamos as colunas para evitar buscar campos que podem não existir no cache do PostgREST
       const { data, error } = await supabase
         .from('imoveis')
         .select(`
           id, codigo_imovel, titulo, bairro, cidade, uf, 
-          finalidade, valor_venda, valor_locacao, ativo, destaque
+          finalidade, valor_venda, valor_locacao, status, destaque
         `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      // Added type casting to resolve the TypeScript error where partial selection 
-      // does not match the full Imovel interface properties
       setImoveis((data as unknown as Imovel[]) || []);
     } catch (err: any) {
       console.error('Erro ao carregar imóveis:', err.message);
@@ -56,7 +53,6 @@ const Imoveis: React.FC = () => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
   };
 
-  // Lógica de Identificação e Exibição do Valor Correto
   const renderValorPrincipal = (item: Imovel) => {
     if (item.finalidade === 'venda') {
       return (
@@ -78,7 +74,6 @@ const Imoveis: React.FC = () => {
         </div>
       );
     }
-    // Caso seja venda_locacao (ambos)
     return (
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
@@ -193,10 +188,10 @@ const Imoveis: React.FC = () => {
                         </td>
                         <td className="px-10 py-6">
                           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border ${
-                            item.ativo ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-200'
+                            item.status === 'ativo' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-200'
                           }`}>
-                            <div className={`w-1 h-1 rounded-full ${item.ativo ? 'bg-emerald-600' : 'bg-slate-400'}`}></div>
-                            {item.ativo ? 'Ativo' : 'Inativo'}
+                            <div className={`w-1 h-1 rounded-full ${item.status === 'ativo' ? 'bg-emerald-600' : 'bg-slate-400'}`}></div>
+                            {item.status === 'ativo' ? 'Ativo' : 'Inativo'}
                           </span>
                         </td>
                         <td className="px-10 py-6 text-right">

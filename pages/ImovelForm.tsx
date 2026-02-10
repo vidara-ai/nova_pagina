@@ -33,13 +33,12 @@ const INITIAL_FORM_STATE: Partial<Imovel> = {
   uf: '',
   descricao: '',
   destaque: false,
-  ativo: true,
+  status: 'ativo',
   caracteristicas_imovel: [],
   caracteristicas_condominio: [],
   opcoes_negociacao: []
 };
 
-// 1️⃣ CÓDIGO DO IMÓVEL (yymmddhhmm)
 const generateUniqueCode = () => {
   const now = new Date();
   const yy = String(now.getFullYear()).slice(-2);
@@ -85,7 +84,6 @@ const ImovelForm: React.FC = () => {
       if (error) throw error;
       
       if (data) {
-        // Blindagem contra arrays nullos vindos do banco
         setFormData({
           ...INITIAL_FORM_STATE,
           ...data,
@@ -93,7 +91,8 @@ const ImovelForm: React.FC = () => {
           caracteristicas_condominio: data.caracteristicas_condominio ?? [],
           opcoes_negociacao: data.opcoes_negociacao ?? [],
           valor_venda: data.valor_venda ?? 0,
-          valor_locacao: data.valor_locacao ?? 0
+          valor_locacao: data.valor_locacao ?? 0,
+          status: data.status ?? 'ativo'
         });
 
         const existingPhotos = (data.imoveis_fotos ?? [])
@@ -167,7 +166,6 @@ const ImovelForm: React.FC = () => {
         .normalize('NFD').replace(/[\u0300-\u036f]/g, "")
         .replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '');
 
-      // Removendo campos que não pertencem à tabela principal para o upsert
       const { imoveis_fotos, ...imovelPayload } = formData as any;
 
       const { data: savedImovel, error: imovelError } = await supabase
@@ -178,7 +176,6 @@ const ImovelForm: React.FC = () => {
 
       if (imovelError) throw imovelError;
 
-      // 5️⃣ STORAGE — REGRA FINAL (imoveis/{codigo}/{timestamp})
       const photoRecords = await Promise.all(photos.map(async (p, idx) => {
         if (!p.isNew) {
           return { 
@@ -207,7 +204,6 @@ const ImovelForm: React.FC = () => {
         };
       }));
 
-      // 2️⃣ ERRO 400 — COLUNA path (Sincronização garantida)
       await supabase.from('imoveis_fotos').delete().eq('imovel_id', savedImovel.id);
       
       const { error: insertError } = await supabase
@@ -257,7 +253,6 @@ const ImovelForm: React.FC = () => {
         <main className="p-8 md:p-12 max-w-[1400px] mx-auto w-full">
           <form id="imovel-form" onSubmit={handleSubmit} className="grid grid-cols-1 xl:grid-cols-12 gap-10">
             <div className="xl:col-span-8 space-y-10">
-              {/* 01: Identificação */}
               <section className="bg-white rounded-[2.5rem] border border-slate-100 p-10 space-y-8 shadow-sm">
                 <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
                   <span className="w-8 h-8 bg-slate-950 text-white rounded-lg flex items-center justify-center text-[10px]">01</span>
@@ -292,7 +287,6 @@ const ImovelForm: React.FC = () => {
                 </div>
               </section>
 
-              {/* 02: Ficha Técnica */}
               <section className="bg-white rounded-[2.5rem] border border-slate-100 p-10 space-y-8 shadow-sm">
                 <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
                   <span className="w-8 h-8 bg-slate-950 text-white rounded-lg flex items-center justify-center text-[10px]">02</span>
@@ -334,7 +328,6 @@ const ImovelForm: React.FC = () => {
                 </div>
               </section>
 
-              {/* 3️⃣ SUMIÇO DAS SEÇÕES: Restauração da Localização */}
               <section className="bg-white rounded-[2.5rem] border border-slate-100 p-10 space-y-8 shadow-sm">
                 <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
                   <span className="w-8 h-8 bg-slate-950 text-white rounded-lg flex items-center justify-center text-[10px]">03</span>
@@ -356,7 +349,6 @@ const ImovelForm: React.FC = () => {
                 </div>
               </section>
 
-              {/* Características da Unidade */}
               <section className="bg-white rounded-[2.5rem] border border-slate-100 p-10 space-y-8 shadow-sm">
                 <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
                   <span className="w-8 h-8 bg-slate-950 text-white rounded-lg flex items-center justify-center text-[10px]">04</span>
@@ -369,7 +361,6 @@ const ImovelForm: React.FC = () => {
                 </div>
               </section>
 
-              {/* 3️⃣ SUMIÇO DAS SEÇÕES: Restauração Condomínio */}
               <section className="bg-white rounded-[2.5rem] border border-slate-100 p-10 space-y-8 shadow-sm">
                 <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
                   <span className="w-8 h-8 bg-indigo-600 text-white rounded-lg flex items-center justify-center text-[10px]">05</span>
@@ -382,7 +373,6 @@ const ImovelForm: React.FC = () => {
                 </div>
               </section>
 
-              {/* 3️⃣ SUMIÇO DAS SEÇÕES: Restauração Negociação */}
               <section className="bg-white rounded-[2.5rem] border border-slate-100 p-10 space-y-8 shadow-sm">
                 <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
                   <span className="w-8 h-8 bg-emerald-600 text-white rounded-lg flex items-center justify-center text-[10px]">06</span>
@@ -410,7 +400,6 @@ const ImovelForm: React.FC = () => {
             </div>
 
             <div className="xl:col-span-4 space-y-10">
-              {/* Mídia Visual */}
               <section className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm space-y-8 flex flex-col min-h-[500px]">
                 <div className="flex items-center justify-between">
                   <div className="flex flex-col">
@@ -443,7 +432,6 @@ const ImovelForm: React.FC = () => {
                 </div>
               </section>
 
-              {/* Marketing e Exposição */}
               <section className="bg-slate-950 rounded-[2.5rem] p-10 text-white space-y-8 shadow-2xl">
                  <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-indigo-400">Marketing e Exposição</h3>
                  <div className="space-y-6">
@@ -455,8 +443,11 @@ const ImovelForm: React.FC = () => {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-black uppercase tracking-widest">Publicação Ativa</span>
-                      <div onClick={() => setFormData({...formData, ativo: !formData.ativo})} className={`w-12 h-6 rounded-full relative cursor-pointer transition-all duration-500 ${formData.ativo ? 'bg-indigo-600 shadow-lg shadow-indigo-600/20' : 'bg-white/10'}`}>
-                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-all duration-500 ${formData.ativo ? 'right-1' : 'left-1'}`}></div>
+                      <div 
+                        onClick={() => setFormData({...formData, status: formData.status === 'ativo' ? 'inativo' : 'ativo'})} 
+                        className={`w-12 h-6 rounded-full relative cursor-pointer transition-all duration-500 ${formData.status === 'ativo' ? 'bg-indigo-600 shadow-lg shadow-indigo-600/20' : 'bg-white/10'}`}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-all duration-500 ${formData.status === 'ativo' ? 'right-1' : 'left-1'}`}></div>
                       </div>
                     </div>
                  </div>
