@@ -19,17 +19,15 @@ const Home: React.FC = () => {
       setLoading(true);
       
       // Query otimizada:
-      // 1. Seleciona campos da tabela imoveis
+      // 1. Seleciona todos os campos (*) da tabela imoveis para garantir compatibilidade com a interface Imovel
       // 2. Faz join com imoveis_fotos filtrando apenas a capa (!inner garante que só traz se tiver foto)
       // 3. Filtra apenas ativos
       // 4. Ordena por destaque primeiro, depois pela ordem de destaque
       const { data, error } = await supabase
         .from('imoveis')
         .select(`
-          id, titulo, slug, valor_venda, valor_locacao, 
-          dormitorios, suites, banheiros, vagas_garagem, 
-          area_m2, bairro, cidade, uf, destaque,
-          imoveis_fotos!inner(url)
+          *,
+          imoveis_fotos!inner(*)
         `)
         .eq('ativo', true)
         .eq('imoveis_fotos.is_capa', true)
@@ -38,7 +36,8 @@ const Home: React.FC = () => {
         .limit(6);
 
       if (error) throw error;
-      setImoveis(data || []);
+      // Fix: Cast explícito para Imovel[] para resolver erro de atribuição de tipo no estado
+      setImoveis((data as unknown as Imovel[]) || []);
     } catch (err) {
       console.error('Erro ao carregar imóveis:', err);
     } finally {
@@ -95,7 +94,7 @@ const Home: React.FC = () => {
                 {/* Imagem com Badge de Destaque */}
                 <div className="relative aspect-[4/3] overflow-hidden">
                   <img 
-                    src={imovel.imoveis_fotos[0]?.url} 
+                    src={imovel.imoveis_fotos && imovel.imoveis_fotos[0]?.url} 
                     alt={imovel.titulo}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                   />
