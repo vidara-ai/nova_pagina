@@ -31,7 +31,7 @@ export interface Imovel {
   ativo: boolean;
   caracteristicas_imovel: string[];
   caracteristicas_condominio: string[];
-  opcoes_negociacao: string[]; // Coluna adicionada
+  opcoes_negociacao: string[];
   imoveis_fotos?: ImovelFoto[];
 }
 
@@ -41,23 +41,4 @@ export interface StatCardProps {
   change: string;
   isPositive: boolean;
   icon: React.ReactNode;
-}
-
-export interface ActivityItem {
-  id: string;
-  user: {
-    name: string;
-    avatar: string;
-    email: string;
-  };
-  action: string;
-  date: string;
-  status: 'completed' | 'pending' | 'cancelled';
-  amount: string;
-}
-
-export interface ChartData {
-  name: string;
-  revenue: number;
-  orders: number;
 }
