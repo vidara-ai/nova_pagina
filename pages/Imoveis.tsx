@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import { Icons } from '../constants';
 import { supabase } from '../services/supabase';
@@ -8,24 +8,35 @@ import { Imovel } from '../types';
 
 const Imoveis: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [imoveis, setImoveis] = useState<Imovel[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     fetchImoveis();
-  }, []);
+  }, [searchParams]);
 
   async function fetchImoveis() {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      const ativoParam = searchParams.get('ativo');
+      const ativoFilter = ativoParam === 'true' ? true : ativoParam === 'false' ? false : null;
+
+      let query = supabase
         .from('imoveis')
         .select(`
           id, codigo_imovel, titulo, bairro, cidade, uf, 
-          finalidade, valor_venda, valor_locacao, status, destaque
+          finalidade, valor_venda, valor_locacao, ativo, destaque
         `)
         .order('created_at', { ascending: false });
+
+      if (ativoFilter !== null) {
+        query = query.eq('ativo', ativoFilter);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setImoveis((data as unknown as Imovel[]) || []);
@@ -188,10 +199,10 @@ const Imoveis: React.FC = () => {
                         </td>
                         <td className="px-10 py-6">
                           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border ${
-                            item.status === 'ativo' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-200'
+                            item.ativo ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-200'
                           }`}>
-                            <div className={`w-1 h-1 rounded-full ${item.status === 'ativo' ? 'bg-emerald-600' : 'bg-slate-400'}`}></div>
-                            {item.status === 'ativo' ? 'Ativo' : 'Inativo'}
+                            <div className={`w-1 h-1 rounded-full ${item.ativo ? 'bg-emerald-600' : 'bg-slate-400'}`}></div>
+                            {item.ativo ? 'Ativo' : 'Inativo'}
                           </span>
                         </td>
                         <td className="px-10 py-6 text-right">
