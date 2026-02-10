@@ -52,8 +52,8 @@ const Dashboard: React.FC = () => {
         { count: siteLeadsCount },
         { count: waLeadsCount }
       ] = await Promise.all([
-        supabase.from('imoveis').select('*', { count: 'exact', head: true }).eq('status', 'ativo'),
-        supabase.from('imoveis').select('*', { count: 'exact', head: true }).eq('status', 'inativo'),
+        supabase.from('imoveis').select('*', { count: 'exact', head: true }).eq('ativo', true),
+        supabase.from('imoveis').select('*', { count: 'exact', head: true }).eq('ativo', false),
         supabase.from('leads').select('*', { count: 'exact', head: true }),
         supabase.from('leads').select('*', { count: 'exact', head: true }).neq('origem', 'whatsapp'),
         supabase.from('leads').select('*', { count: 'exact', head: true }).eq('origem', 'whatsapp')
@@ -81,7 +81,7 @@ const Dashboard: React.FC = () => {
       change: '--', 
       isPositive: true, 
       icon: <Icons.Dashboard />,
-      onClick: () => navigate('/imoveis?status=ativo')
+      onClick: () => navigate('/imoveis?ativo=true')
     },
     { 
       title: 'Imóveis Inativos', 
@@ -89,7 +89,7 @@ const Dashboard: React.FC = () => {
       change: '--', 
       isPositive: false, 
       icon: <Icons.Building />,
-      onClick: () => navigate('/imoveis?status=inativo')
+      onClick: () => navigate('/imoveis?ativo=false')
     },
     { 
       title: 'Total de Leads', 
