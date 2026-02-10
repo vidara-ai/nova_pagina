@@ -1,13 +1,13 @@
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': 'https://corretor36.pages.dev',
-  'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
   'Access-Control-Max-Age': '86400',
 };
 
 export default {
   async fetch(request, env) {
-    // 1. Trata preflight (OPTIONS) - Necessário para permitir o método PUT
+    // 1. Trata preflight (OPTIONS) - CRÍTICO para permitir o método PUT
     if (request.method === 'OPTIONS') {
       return new Response(null, {
         status: 204,
@@ -52,7 +52,10 @@ export default {
           return new Response('Not found', { status: 404, headers: CORS_HEADERS });
         }
 
+        // Criamos os headers de resposta e injetamos o CORS
         const responseHeaders = new Headers(CORS_HEADERS);
+        
+        // Escreve metadados do R2 (Content-Type, etc) nos headers
         object.writeHttpMetadata(responseHeaders);
         responseHeaders.set('etag', object.httpEtag);
         
@@ -66,6 +69,15 @@ export default {
         });
       }
 
+      // Operação de EXCLUSÃO (DELETE)
+      if (request.method === 'DELETE') {
+        if (!key) {
+          return new Response('Key required', { status: 400, headers: CORS_HEADERS });
+        }
+        await env.IMOVEIS_BUCKET.delete(key);
+        return new Response('Deleted', { headers: CORS_HEADERS });
+      }
+
       // Caso tente outros métodos
       return new Response('Method Not Allowed', {
         status: 405,
@@ -73,6 +85,7 @@ export default {
       });
 
     } catch (err) {
+      // Erros internos também precisam retornar headers CORS para o browser ler a mensagem
       return new Response(JSON.stringify({ error: err.message }), {
         status: 500,
         headers: {
