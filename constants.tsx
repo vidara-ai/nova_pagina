@@ -2,49 +2,28 @@
 import React from 'react';
 import { ChartData, ActivityItem } from './types';
 
-export const MOCK_CHART_DATA: ChartData[] = [
-  { name: 'Jan', revenue: 4000, orders: 240 },
-  { name: 'Fev', revenue: 3000, orders: 198 },
-  { name: 'Mar', revenue: 2000, orders: 150 },
-  { name: 'Abr', revenue: 2780, orders: 390 },
-  { name: 'Mai', revenue: 1890, orders: 480 },
-  { name: 'Jun', revenue: 2390, orders: 380 },
-  { name: 'Jul', revenue: 3490, orders: 430 },
+export const LISTA_CARACTERISTICAS = [
+  "Ar condicionado", "Área de serviço", "Armário na cozinha", "Armário no quarto",
+  "Armários projetados", "Box no banheiro", "Caixa d’água", "Cisterna",
+  "Dependência de empregada", "Quarto de empregada", "WC serviço", "Sala de estar",
+  "Sala de jantar", "Sala de visita", "Varanda", "Varanda na sala", "Tela na varanda",
+  "Nascente", "Rua asfaltada", "Piscina privativa", "Churrasqueira", "Jardim",
+  "Quintal", "Escritório / Home office", "Closet", "Lavabo", "Pé-direito alto",
+  "Energia solar", "Mobiliado", "Parcialmente mobiliado"
 ];
 
-export const MOCK_ACTIVITIES: ActivityItem[] = [
-  {
-    id: '1',
-    user: { name: 'Ana Silva', email: 'ana.silva@email.com', avatar: 'https://picsum.photos/seed/ana/40/40' },
-    action: 'Assinatura Premium',
-    date: 'Hoje, 14:20',
-    status: 'completed',
-    amount: 'R$ 129,90'
-  },
-  {
-    id: '2',
-    user: { name: 'João Pereira', email: 'joao.p@email.com', avatar: 'https://picsum.photos/seed/joao/40/40' },
-    action: 'Compra de Créditos',
-    date: 'Hoje, 11:05',
-    status: 'pending',
-    amount: 'R$ 50,00'
-  },
-  {
-    id: '3',
-    user: { name: 'Maria Santos', email: 'm.santos@email.com', avatar: 'https://picsum.photos/seed/maria/40/40' },
-    action: 'Upgrade de Plano',
-    date: 'Ontem, 16:45',
-    status: 'completed',
-    amount: 'R$ 299,00'
-  },
-  {
-    id: '4',
-    user: { name: 'Carlos Lima', email: 'carlos.l@email.com', avatar: 'https://picsum.photos/seed/carlos/40/40' },
-    action: 'Reembolso Solicitado',
-    date: 'Ontem, 09:12',
-    status: 'cancelled',
-    amount: 'R$ 89,90'
-  },
+export const LISTA_COMODIDADES = [
+  "Acessível para deficientes", "Elevador", "Portaria 24h", "Guarita",
+  "Portão eletrônico", "Gerador", "Bicicletário", "Brinquedoteca",
+  "Playground", "Espaço gourmet", "Salão de festas", "Piscina (condomínio)",
+  "Quadra poliesportiva (condomínio)", "Campo de futebol (condomínio)",
+  "Condomínio fechado", "Rua asfaltada (condomínio)", "Poço artesiano",
+  "Academia", "Coworking", "Mercado interno", "Pet place"
+];
+
+export const LISTA_NEGOCIACAO = [
+  "Financiamento", "Uso de FGTS", "Carta de crédito", "Aceita permuta",
+  "Fiador", "Depósito caução"
 ];
 
 export const Icons = {
@@ -61,6 +40,11 @@ export const Icons = {
   Building: () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+    </svg>
+  ),
+  Home: () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
     </svg>
   ),
   Orders: () => (
