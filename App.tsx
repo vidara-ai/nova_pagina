@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './AuthContext';
@@ -5,6 +6,7 @@ import PrivateRoute from './PrivateRoute';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import Configuracoes from './pages/Configuracoes';
 
 const App: React.FC = () => {
   return (
@@ -17,12 +19,20 @@ const App: React.FC = () => {
           {/* Rota pública para login */}
           <Route path="/login" element={<Login />} />
           
-          {/* Rota protegida para o dashboard */}
+          {/* Rotas protegidas */}
           <Route 
             path="/dashboard" 
             element={
               <PrivateRoute>
                 <Dashboard />
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/configuracoes" 
+            element={
+              <PrivateRoute>
+                <Configuracoes />
               </PrivateRoute>
             } 
           />
