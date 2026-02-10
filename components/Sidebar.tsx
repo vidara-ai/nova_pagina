@@ -51,8 +51,18 @@ const Sidebar: React.FC = () => {
           active={location.pathname === '/dashboard'} 
           onClick={() => navigate('/dashboard')}
         />
-        <SidebarItem icon={<Icons.Users />} label="Leads" />
-        <SidebarItem icon={<Icons.Orders />} label="Propriedades" />
+        <SidebarItem 
+          icon={<Icons.Users />} 
+          label="Leads" 
+          active={location.pathname === '/leads'}
+          onClick={() => navigate('/leads')}
+        />
+        <SidebarItem 
+          icon={<Icons.Orders />} 
+          label="Propriedades" 
+          active={location.pathname.startsWith('/imoveis')}
+          onClick={() => navigate('/imoveis')}
+        />
         
         <div className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em] mb-4 mt-8 px-6">Sistema</div>
         <SidebarItem 
