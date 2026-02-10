@@ -297,7 +297,7 @@ Se precisar de algo, é só responder por aqui 🙂`;
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filteredLeads.map((lead) => (
-                  <div key={lead.id} className="bg-white rounded-[2rem] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.01)] p-8 flex flex-col h-full hover:shadow-xl hover:-translate-y-1 transition-all group">
+                  <div key={lead.id} className="relative bg-white rounded-[2.5rem] border border-slate-100 p-8 flex flex-col h-full transition-all duration-300 ease-out hover:-translate-y-1 hover:border-slate-200 hover:shadow-[0_20px_40px_rgba(15,23,42,0.08)] before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-slate-200 before:to-transparent before:opacity-0 hover:before:opacity-100 group">
                     {/* Badge de Origem */}
                     <div className="flex justify-between items-start mb-6">
                       <span className="px-3 py-1 bg-slate-50 border border-slate-100 rounded-lg text-[8px] font-black uppercase tracking-widest text-slate-400">
