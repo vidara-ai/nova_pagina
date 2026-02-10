@@ -20,7 +20,6 @@ const Dashboard: React.FC = () => {
   const [recentLeads, setRecentLeads] = useState<Lead[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(true);
   
-  // Estados para as métricas reais
   const [stats, setStats] = useState({
     ativos: 0,
     inativos: 0,
@@ -37,7 +36,6 @@ const Dashboard: React.FC = () => {
     try {
       setLoadingLeads(true);
       
-      // 1. Busca leads recentes para a lista
       const { data: leadsData, error: leadsError } = await supabase
         .from('leads')
         .select('id, nome, telefone, imovel_interesse, origem, created_at')
@@ -47,7 +45,6 @@ const Dashboard: React.FC = () => {
       if (leadsError) throw leadsError;
       setRecentLeads(leadsData || []);
 
-      // 2. Busca métricas para os cards (Consultas head:true para performance)
       const [
         { count: ativosCount },
         { count: inativosCount },
@@ -83,14 +80,16 @@ const Dashboard: React.FC = () => {
       value: stats.ativos.toString(), 
       change: '--', 
       isPositive: true, 
-      icon: <Icons.Dashboard /> 
+      icon: <Icons.Dashboard />,
+      onClick: () => navigate('/imoveis?status=ativo')
     },
     { 
       title: 'Imóveis Inativos', 
       value: stats.inativos.toString(), 
       change: '--', 
       isPositive: false, 
-      icon: <Icons.Building /> 
+      icon: <Icons.Building />,
+      onClick: () => navigate('/imoveis?status=inativo')
     },
     { 
       title: 'Total de Leads', 
@@ -162,16 +161,6 @@ const Dashboard: React.FC = () => {
                 Gestão centralizada de leads, propriedades e performance operacional.
               </p>
             </div>
-            
-            <div className="flex items-center gap-3">
-              <button className="px-6 py-4 bg-white border border-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95">
-                Exportar Dados
-              </button>
-              <button onClick={() => navigate('/imoveis/novo')} className="px-7 py-4 bg-slate-950 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-slate-200 hover:bg-indigo-600 transition-all active:scale-95 flex items-center gap-3">
-                <Icons.Plus />
-                Cadastrar Imóvel
-              </button>
-            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -180,10 +169,9 @@ const Dashboard: React.FC = () => {
             ))}
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+          <div className="grid grid-cols-1 gap-8 items-start">
             
-            {/* Bloco Leads Recentes */}
-            <div className="xl:col-span-8 bg-white rounded-[2.5rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)] overflow-hidden flex flex-col">
+            <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)] overflow-hidden flex flex-col">
               <div className="px-10 py-8 border-b border-slate-50 flex justify-between items-center bg-white">
                 <div>
                   <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em]">Leads Recentes</h3>
@@ -244,47 +232,6 @@ const Dashboard: React.FC = () => {
                     </div>
                   ))
                 )}
-              </div>
-            </div>
-
-            <div className="xl:col-span-4 space-y-6">
-              <div className="bg-indigo-600 rounded-[2.5rem] p-10 text-white relative overflow-hidden group shadow-2xl shadow-indigo-100">
-                <div className="absolute -top-12 -right-12 w-48 h-48 bg-white/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-1000"></div>
-                
-                <div className="relative z-10 space-y-8">
-                  <div className="w-12 h-12 bg-white/15 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/10">
-                    <Icons.Dashboard />
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <h3 className="text-3xl font-black uppercase tracking-tighter leading-none">
-                      Otimize seus <br /> <span className="text-indigo-200">Resultados</span>
-                    </h3>
-                    <p className="text-indigo-100/70 text-xs font-medium leading-relaxed">
-                      Utilize nossa inteligência de dados para precificar seus imóveis conforme a demanda local.
-                    </p>
-                  </div>
-
-                  <button className="w-full py-5 bg-white text-indigo-600 text-[10px] font-black uppercase tracking-[0.3em] rounded-2xl hover:bg-indigo-50 transition-all shadow-xl active:scale-95">
-                    Ver Insights
-                  </button>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-[2rem] border border-slate-100 p-8 shadow-sm flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="relative">
-                    <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full"></div>
-                    <div className="absolute inset-0 w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping opacity-75"></div>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest">API Gateway</p>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Supabase v2.48</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Online</p>
-                </div>
               </div>
             </div>
 
