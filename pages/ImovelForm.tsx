@@ -10,7 +10,7 @@ interface PhotoItem {
   id: string;
   file: File | null;
   preview: string;
-  path?: string; // Caminho relativo no storage
+  path?: string;
   isNew: boolean;
 }
 
@@ -39,7 +39,7 @@ const INITIAL_FORM_STATE: Partial<Imovel> = {
   opcoes_negociacao: []
 };
 
-// Gerador seguindo o formato rigoroso yymmddhhmm
+// 1️⃣ CÓDIGO DO IMÓVEL (yymmddhhmm)
 const generateUniqueCode = () => {
   const now = new Date();
   const yy = String(now.getFullYear()).slice(-2);
@@ -85,17 +85,18 @@ const ImovelForm: React.FC = () => {
       if (error) throw error;
       
       if (data) {
+        // Blindagem contra arrays nullos vindos do banco
         setFormData({
           ...INITIAL_FORM_STATE,
           ...data,
-          caracteristicas_imovel: data.caracteristicas_imovel || [],
-          caracteristicas_condominio: data.caracteristicas_condominio || [],
-          opcoes_negociacao: data.opcoes_negociacao || [],
-          valor_venda: data.valor_venda || 0,
-          valor_locacao: data.valor_locacao || 0
+          caracteristicas_imovel: data.caracteristicas_imovel ?? [],
+          caracteristicas_condominio: data.caracteristicas_condominio ?? [],
+          opcoes_negociacao: data.opcoes_negociacao ?? [],
+          valor_venda: data.valor_venda ?? 0,
+          valor_locacao: data.valor_locacao ?? 0
         });
 
-        const existingPhotos = (data.imoveis_fotos || [])
+        const existingPhotos = (data.imoveis_fotos ?? [])
           .sort((a: any, b: any) => a.ordem - b.ordem)
           .map((img: any) => ({
             id: img.id,
@@ -161,25 +162,23 @@ const ImovelForm: React.FC = () => {
     setLoading(true);
 
     try {
-      // 1. Upsert do imóvel
       const slug = (formData.titulo || '')
         .toLowerCase()
         .normalize('NFD').replace(/[\u0300-\u036f]/g, "")
         .replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '');
 
+      // Removendo campos que não pertencem à tabela principal para o upsert
+      const { imoveis_fotos, ...imovelPayload } = formData as any;
+
       const { data: savedImovel, error: imovelError } = await supabase
         .from('imoveis')
-        .upsert({ 
-          ...formData, 
-          slug, 
-          imoveis_fotos: undefined // Removido para evitar erro no payload de upsert
-        } as any)
+        .upsert({ ...imovelPayload, slug })
         .select()
         .single();
 
       if (imovelError) throw imovelError;
 
-      // 2. Upload para Supabase Storage
+      // 5️⃣ STORAGE — REGRA FINAL (imoveis/{codigo}/{timestamp})
       const photoRecords = await Promise.all(photos.map(async (p, idx) => {
         if (!p.isNew) {
           return { 
@@ -192,8 +191,7 @@ const ImovelForm: React.FC = () => {
 
         const fileExt = p.file!.name.split('.').pop() || 'jpg';
         const fileName = `${Date.now()}_${idx}.${fileExt}`;
-        // Arquitetura obrigatória: imoveis/{codigo_imovel}/{nome_do_arquivo}
-        const storagePath = `${formData.codigo_imovel}/${fileName}`;
+        const storagePath = `${savedImovel.codigo_imovel}/${fileName}`;
 
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('imoveis')
@@ -209,8 +207,7 @@ const ImovelForm: React.FC = () => {
         };
       }));
 
-      // 3. Sincronização com a tabela imoveis_fotos
-      // Excluímos as referências antigas para manter a integridade da ordem e das novas fotos
+      // 2️⃣ ERRO 400 — COLUNA path (Sincronização garantida)
       await supabase.from('imoveis_fotos').delete().eq('imovel_id', savedImovel.id);
       
       const { error: insertError } = await supabase
@@ -246,13 +243,13 @@ const ImovelForm: React.FC = () => {
           <div className="flex flex-col">
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">Gestão de Inventário</span>
             <h1 className="text-sm font-black uppercase text-slate-900 mt-1">
-              {id ? `Editando: ${formData.codigo_imovel}` : 'Novo Imóvel Exclusivo'}
+              {id ? `Editando: ${formData.codigo_imovel}` : 'Novo Registro Imobiliário'}
             </h1>
           </div>
           <div className="flex gap-3">
             <button onClick={() => navigate('/imoveis')} type="button" className="px-6 py-2.5 bg-white border border-slate-200 text-slate-400 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all">Cancelar</button>
             <button form="imovel-form" disabled={loading} className="px-8 py-2.5 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50">
-              {loading ? 'Sincronizando...' : 'Salvar Propriedade'}
+              {loading ? 'Sincronizando...' : 'Publicar Imóvel'}
             </button>
           </div>
         </header>
@@ -260,10 +257,11 @@ const ImovelForm: React.FC = () => {
         <main className="p-8 md:p-12 max-w-[1400px] mx-auto w-full">
           <form id="imovel-form" onSubmit={handleSubmit} className="grid grid-cols-1 xl:grid-cols-12 gap-10">
             <div className="xl:col-span-8 space-y-10">
+              {/* 01: Identificação */}
               <section className="bg-white rounded-[2.5rem] border border-slate-100 p-10 space-y-8 shadow-sm">
                 <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
                   <span className="w-8 h-8 bg-slate-950 text-white rounded-lg flex items-center justify-center text-[10px]">01</span>
-                  Identificação do Ativo
+                  Identificação
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   <div className="space-y-1.5">
@@ -294,6 +292,7 @@ const ImovelForm: React.FC = () => {
                 </div>
               </section>
 
+              {/* 02: Ficha Técnica */}
               <section className="bg-white rounded-[2.5rem] border border-slate-100 p-10 space-y-8 shadow-sm">
                 <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
                   <span className="w-8 h-8 bg-slate-950 text-white rounded-lg flex items-center justify-center text-[10px]">02</span>
@@ -301,11 +300,11 @@ const ImovelForm: React.FC = () => {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="md:col-span-2 space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Título da Oferta</label>
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Título do Anúncio</label>
                     <input required value={formData.titulo || ''} onChange={e => setFormData({...formData, titulo: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold focus:bg-white focus:border-indigo-200 outline-none transition-all" />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Tipo de Imóvel</label>
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Tipo</label>
                     <select value={formData.tipo_imovel} onChange={e => setFormData({...formData, tipo_imovel: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none">
                       <option>Apartamento</option>
                       <option>Casa</option>
@@ -315,13 +314,13 @@ const ImovelForm: React.FC = () => {
                     </select>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Preço Base (R$)</label>
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Valor (R$)</label>
                     <input type="number" value={formData.finalidade === 'locacao' ? formData.valor_locacao : formData.valor_venda} onChange={e => setFormData({...formData, [formData.finalidade === 'locacao' ? 'valor_locacao' : 'valor_venda']: Number(e.target.value)})} className="w-full px-5 py-3.5 bg-indigo-50 border border-indigo-100 rounded-2xl text-xs font-black text-indigo-600 outline-none" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
                    {[
-                    { label: 'Área (m²)', key: 'area_m2' },
+                    { label: 'Área m²', key: 'area_m2' },
                     { label: 'Dorms', key: 'dormitorios' },
                     { label: 'Suítes', key: 'suites' },
                     { label: 'Banhs', key: 'banheiros' },
@@ -335,20 +334,83 @@ const ImovelForm: React.FC = () => {
                 </div>
               </section>
 
+              {/* 3️⃣ SUMIÇO DAS SEÇÕES: Restauração da Localização */}
               <section className="bg-white rounded-[2.5rem] border border-slate-100 p-10 space-y-8 shadow-sm">
                 <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
                   <span className="w-8 h-8 bg-slate-950 text-white rounded-lg flex items-center justify-center text-[10px]">03</span>
-                  Características e Diferenciais
+                  Localização
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Bairro</label>
+                    <input required value={formData.bairro || ''} onChange={e => setFormData({...formData, bairro: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold focus:bg-white outline-none" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Cidade</label>
+                    <input required value={formData.cidade || ''} onChange={e => setFormData({...formData, cidade: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold focus:bg-white outline-none" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">UF</label>
+                    <input required maxLength={2} value={formData.uf || ''} onChange={e => setFormData({...formData, uf: e.target.value.toUpperCase()})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold focus:bg-white outline-none" />
+                  </div>
+                </div>
+              </section>
+
+              {/* Características da Unidade */}
+              <section className="bg-white rounded-[2.5rem] border border-slate-100 p-10 space-y-8 shadow-sm">
+                <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
+                  <span className="w-8 h-8 bg-slate-950 text-white rounded-lg flex items-center justify-center text-[10px]">04</span>
+                  Características da Unidade
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {LISTA_CARACTERISTICAS_IMOVEL.map(item => (
+                  {(LISTA_CARACTERISTICAS_IMOVEL || []).map(item => (
                     <button key={item} type="button" onClick={() => toggleChip('caracteristicas_imovel', item)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${formData.caracteristicas_imovel?.includes(item) ? 'bg-slate-900 text-white border-slate-900 shadow-md' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'}`}>{item}</button>
                   ))}
+                </div>
+              </section>
+
+              {/* 3️⃣ SUMIÇO DAS SEÇÕES: Restauração Condomínio */}
+              <section className="bg-white rounded-[2.5rem] border border-slate-100 p-10 space-y-8 shadow-sm">
+                <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
+                  <span className="w-8 h-8 bg-indigo-600 text-white rounded-lg flex items-center justify-center text-[10px]">05</span>
+                  Condomínio e Lazer
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {(LISTA_CARACTERISTICAS_CONDOMINIO || []).map(item => (
+                    <button key={item} type="button" onClick={() => toggleChip('caracteristicas_condominio', item)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${formData.caracteristicas_condominio?.includes(item) ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'}`}>{item}</button>
+                  ))}
+                </div>
+              </section>
+
+              {/* 3️⃣ SUMIÇO DAS SEÇÕES: Restauração Negociação */}
+              <section className="bg-white rounded-[2.5rem] border border-slate-100 p-10 space-y-8 shadow-sm">
+                <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
+                  <span className="w-8 h-8 bg-emerald-600 text-white rounded-lg flex items-center justify-center text-[10px]">06</span>
+                  Negociação e Garantias
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Formas de Pagamento</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {(LISTA_PAGAMENTO || []).map(item => (
+                        <button key={item} type="button" onClick={() => toggleChip('opcoes_negociacao', item)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all border ${formData.opcoes_negociacao?.includes(item) ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'}`}>{item}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Garantias Locatícias</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {(LISTA_GARANTIAS || []).map(item => (
+                        <button key={item} type="button" onClick={() => toggleChip('opcoes_negociacao', item)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all border ${formData.opcoes_negociacao?.includes(item) ? 'bg-amber-600 text-white border-amber-600' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'}`}>{item}</button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </section>
             </div>
 
             <div className="xl:col-span-4 space-y-10">
+              {/* Mídia Visual */}
               <section className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm space-y-8 flex flex-col min-h-[500px]">
                 <div className="flex items-center justify-between">
                   <div className="flex flex-col">
@@ -375,38 +437,38 @@ const ImovelForm: React.FC = () => {
                   {photos.length === 0 && (
                     <div className="col-span-2 py-10 flex flex-col items-center justify-center text-center opacity-40">
                       <Icons.Dashboard />
-                      <span className="text-[9px] font-black uppercase mt-4">Nenhuma foto anexada</span>
+                      <span className="text-[9px] font-black uppercase mt-4">Anexar Fotografias</span>
                     </div>
                   )}
                 </div>
               </section>
 
+              {/* Marketing e Exposição */}
               <section className="bg-slate-950 rounded-[2.5rem] p-10 text-white space-y-8 shadow-2xl">
                  <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-indigo-400">Marketing e Exposição</h3>
                  <div className="space-y-6">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-black uppercase tracking-widest">Destaque na Vitrine</span>
-                      <div onClick={() => setFormData({...formData, destaque: !formData.destaque})} className={`w-12 h-6 rounded-full relative cursor-pointer transition-all duration-500 ${formData.destaque ? 'bg-amber-500' : 'bg-white/10'}`}>
+                      <div onClick={() => setFormData({...formData, destaque: !formData.destaque})} className={`w-12 h-6 rounded-full relative cursor-pointer transition-all duration-500 ${formData.destaque ? 'bg-amber-500 shadow-lg shadow-amber-500/20' : 'bg-white/10'}`}>
                         <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-all duration-500 ${formData.destaque ? 'right-1' : 'left-1'}`}></div>
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-black uppercase tracking-widest">Publicação Ativa</span>
-                      <div onClick={() => setFormData({...formData, ativo: !formData.ativo})} className={`w-12 h-6 rounded-full relative cursor-pointer transition-all duration-500 ${formData.ativo ? 'bg-indigo-600' : 'bg-white/10'}`}>
+                      <div onClick={() => setFormData({...formData, ativo: !formData.ativo})} className={`w-12 h-6 rounded-full relative cursor-pointer transition-all duration-500 ${formData.ativo ? 'bg-indigo-600 shadow-lg shadow-indigo-600/20' : 'bg-white/10'}`}>
                         <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-all duration-500 ${formData.ativo ? 'right-1' : 'left-1'}`}></div>
                       </div>
                     </div>
                  </div>
                  <div className="pt-6 border-t border-white/10">
                     <label className="text-[9px] font-black uppercase tracking-widest text-white/40 block mb-4">Texto Descritivo</label>
-                    <textarea rows={6} value={formData.descricao || ''} onChange={e => setFormData({...formData, descricao: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-3xl p-6 text-xs font-medium outline-none focus:border-indigo-500/50 transition-all resize-none leading-relaxed" placeholder="Descreva os diferenciais técnicos e emocionais..." />
+                    <textarea rows={6} value={formData.descricao || ''} onChange={e => setFormData({...formData, descricao: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-3xl p-6 text-xs font-medium outline-none focus:border-indigo-500/50 transition-all resize-none leading-relaxed" placeholder="Apresente os diferenciais da propriedade..." />
                  </div>
               </section>
             </div>
           </form>
         </main>
       </div>
-      <style>{`.custom-scrollbar::-webkit-scrollbar { width: 4px; } .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 10px; }`}</style>
     </div>
   );
 };
