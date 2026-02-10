@@ -33,7 +33,7 @@ const INITIAL_FORM_STATE: Partial<Imovel> = {
   uf: '',
   descricao: '',
   destaque: false,
-  status: 'ativo',
+  ativo: true,
   caracteristicas_imovel: [],
   caracteristicas_condominio: [],
   opcoes_negociacao: []
@@ -92,7 +92,7 @@ const ImovelForm: React.FC = () => {
           opcoes_negociacao: data.opcoes_negociacao ?? [],
           valor_venda: data.valor_venda ?? 0,
           valor_locacao: data.valor_locacao ?? 0,
-          status: data.status ?? 'ativo'
+          ativo: data.ativo ?? true
         });
 
         const existingPhotos = (data.imoveis_fotos ?? [])
@@ -166,6 +166,7 @@ const ImovelForm: React.FC = () => {
         .normalize('NFD').replace(/[\u0300-\u036f]/g, "")
         .replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '');
 
+      // Payload purification: ensure only DB columns are sent
       const { imoveis_fotos, ...imovelPayload } = formData as any;
 
       const { data: savedImovel, error: imovelError } = await supabase
@@ -444,10 +445,10 @@ const ImovelForm: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-black uppercase tracking-widest">Publicação Ativa</span>
                       <div 
-                        onClick={() => setFormData({...formData, status: formData.status === 'ativo' ? 'inativo' : 'ativo'})} 
-                        className={`w-12 h-6 rounded-full relative cursor-pointer transition-all duration-500 ${formData.status === 'ativo' ? 'bg-indigo-600 shadow-lg shadow-indigo-600/20' : 'bg-white/10'}`}
+                        onClick={() => setFormData({...formData, ativo: !formData.ativo})} 
+                        className={`w-12 h-6 rounded-full relative cursor-pointer transition-all duration-500 ${formData.ativo ? 'bg-indigo-600 shadow-lg shadow-indigo-600/20' : 'bg-white/10'}`}
                       >
-                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-all duration-500 ${formData.status === 'ativo' ? 'right-1' : 'left-1'}`}></div>
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-all duration-500 ${formData.ativo ? 'right-1' : 'left-1'}`}></div>
                       </div>
                     </div>
                  </div>
