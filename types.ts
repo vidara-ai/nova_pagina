@@ -11,7 +11,7 @@ export interface Imovel {
   id: string;
   referencia?: string;
   codigo_imovel: string;
-  status_imovel: 'Disponível' | 'Reservado' | 'Vendido' | 'Suspenso';
+  status_imovel: 'Disponível' | 'Indisponível' | 'Vendido' | 'Alugado' | 'Suspenso';
   finalidade: 'venda' | 'locacao' | 'venda_locacao';
   titulo: string;
   slug: string;
@@ -29,22 +29,9 @@ export interface Imovel {
   descricao: string;
   destaque: boolean;
   ativo: boolean;
+  caracteristicas_imovel: string[];
+  caracteristicas_condominio: string[];
   imoveis_fotos?: ImovelFoto[];
-}
-
-export interface Caracteristica {
-  id: string;
-  nome: string;
-}
-
-export interface Comodidade {
-  id: string;
-  nome: string;
-}
-
-export interface NegociacaoOpcao {
-  id: string;
-  nome: string;
 }
 
 export interface StatCardProps {
