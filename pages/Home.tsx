@@ -18,25 +18,19 @@ const Home: React.FC = () => {
     try {
       setLoading(true);
       
-      // Query otimizada:
-      // 1. Seleciona todos os campos (*) da tabela imoveis para garantir compatibilidade com a interface Imovel
-      // 2. Faz join com imoveis_fotos filtrando apenas a capa (!inner garante que só traz se tiver foto)
-      // 3. Filtra apenas ativos
-      // 4. Ordena por destaque primeiro, depois pela ordem de destaque
+      // Correção PGRST201: Usando !imoveis_fotos_imovel_id_fkey para resolver ambiguidade
       const { data, error } = await supabase
         .from('imoveis')
         .select(`
           *,
-          imoveis_fotos!inner(*)
+          imoveis_fotos!imoveis_fotos_imovel_id_fkey(*)
         `)
         .eq('ativo', true)
         .eq('imoveis_fotos.is_capa', true)
         .order('destaque', { ascending: false })
-        .order('ordem_destaque', { ascending: true })
         .limit(6);
 
       if (error) throw error;
-      // Fix: Cast explícito para Imovel[] para resolver erro de atribuição de tipo no estado
       setImoveis((data as unknown as Imovel[]) || []);
     } catch (err) {
       console.error('Erro ao carregar imóveis:', err);
@@ -58,7 +52,6 @@ const Home: React.FC = () => {
       <Header />
       <Hero />
 
-      {/* SEÇÃO DE LISTAGEM DE IMÓVEIS */}
       <section className="max-w-7xl mx-auto px-6 py-24">
         <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-6">
           <div className="max-w-2xl">
@@ -73,7 +66,6 @@ const Home: React.FC = () => {
         </div>
 
         {loading ? (
-          /* SKELETON LOADING */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
             {[1, 2, 3].map((n) => (
               <div key={n} className="animate-pulse space-y-4">
@@ -84,14 +76,12 @@ const Home: React.FC = () => {
             ))}
           </div>
         ) : imoveis.length > 0 ? (
-          /* GRID DE IMÓVEIS REAL */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
             {imoveis.map((imovel) => (
               <article 
                 key={imovel.id} 
                 className="group cursor-pointer bg-white rounded-[2.5rem] overflow-hidden border border-slate-50 hover:border-indigo-100 transition-all duration-500 hover:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)]"
               >
-                {/* Imagem com Badge de Destaque */}
                 <div className="relative aspect-[4/3] overflow-hidden">
                   <img 
                     src={imovel.imoveis_fotos && imovel.imoveis_fotos[0]?.url} 
@@ -115,7 +105,6 @@ const Home: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Conteúdo do Card */}
                 <div className="p-8 space-y-6">
                   <div>
                     <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight group-hover:text-indigo-600 transition-colors line-clamp-1">
@@ -127,7 +116,6 @@ const Home: React.FC = () => {
                     </p>
                   </div>
 
-                  {/* Características */}
                   <div className="flex items-center justify-between pt-6 border-t border-slate-50">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-black text-slate-900">{imovel.dormitorios}</span>
@@ -149,7 +137,6 @@ const Home: React.FC = () => {
             ))}
           </div>
         ) : (
-          /* ESTADO VAZIO ELEGANTE */
           <div className="relative group overflow-hidden rounded-[4rem]">
             <div className="absolute -inset-1 bg-gradient-to-r from-slate-100 via-indigo-50 to-slate-100 rounded-[4rem] blur-[20px] opacity-30 group-hover:opacity-60 transition duration-1000"></div>
             <div className="relative flex flex-col items-center justify-center py-40 border border-slate-100 rounded-[4rem] bg-white/80 backdrop-blur-sm transition-all duration-500 hover:border-indigo-100 hover:shadow-2xl hover:shadow-indigo-50/50">
@@ -168,7 +155,7 @@ const Home: React.FC = () => {
 
       <CorretorBlock 
         nome="Marlon Sales"
-        descricao="Transformando a complexa jornada imobiliária em uma experiência de sucesso absoluto. Focado em conectar pessoas a oportunidades exclusivas com expertise estratégica e atendimento humano."
+        descricao="Transformando a complexa jornada imobiliária em uma experiência de sucesso absoluto."
         creci="4567891011"
         telefone="83 3221.0008"
         instagram="https://instagram.com/marlonsales"
@@ -176,7 +163,6 @@ const Home: React.FC = () => {
         tiktok="https://tiktok.com/@marlonsales"
       />
 
-      {/* BLOCO “DEFINA SEU OBJETIVO” */}
       <section className="max-w-xl mx-auto px-6 mb-48">
         <div className="bg-slate-50/80 backdrop-blur-xl p-16 rounded-[4rem] border border-white shadow-[0_32px_64px_-16px_rgba(0,0,0,0.05)]">
           <h3 className="text-[12px] font-black uppercase tracking-[0.6em] text-slate-400 mb-12 text-center">
@@ -223,8 +209,6 @@ const Home: React.FC = () => {
           </h4>
           <p className="text-[12px] font-bold text-slate-400 max-w-xl uppercase tracking-[0.3em] leading-loose mb-20 px-4 opacity-70">
             Redefinindo a busca por excelência imobiliária. 
-            Simples, transparente e digital. 
-            Os melhores negócios começam com a melhor experiência.
           </p>
 
           <div className="flex flex-wrap justify-center gap-12 mb-24 px-4">

@@ -20,8 +20,7 @@ const ImovelForm: React.FC = () => {
   const [fetching, setFetching] = useState(false);
   const [images, setImages] = useState<PreviewImage[]>([]);
 
-  // Inicialização robusta do estado para evitar undefined em campos controlados
-  const [formData, setFormData] = useState<Partial<Imovel & { opcoes_negociacao: string[] }>>({
+  const [formData, setFormData] = useState<Partial<Imovel>>({
     codigo_imovel: '',
     referencia: '',
     titulo: '',
@@ -44,7 +43,7 @@ const ImovelForm: React.FC = () => {
     ativo: true,
     caracteristicas_imovel: [],
     caracteristicas_condominio: [],
-    opcoes_negociacao: []
+    opcoes_negociacao: [] // Agora tipado corretamente via interface Imovel
   });
 
   useEffect(() => {
@@ -69,15 +68,15 @@ const ImovelForm: React.FC = () => {
   const fetchImovel = async () => {
     setFetching(true);
     try {
+      // Correção PGRST201 aqui também para garantir carregamento seguro das fotos em edição
       const { data, error } = await supabase
         .from('imoveis')
-        .select('*, imoveis_fotos(*)')
+        .select('*, imoveis_fotos!imoveis_fotos_imovel_id_fkey(*)')
         .eq('id', id)
         .single();
       
       if (error) throw error;
       
-      // Sanitização de dados vindos do banco para garantir arrays e números
       if (data) {
         setFormData({
           ...data,
@@ -154,7 +153,7 @@ const ImovelForm: React.FC = () => {
     setLoading(true);
     try {
       const slug = slugify(formData.titulo);
-      const { imoveis_fotos, ...pureData } = formData as any; // Remove fotos do payload de insert
+      const { imoveis_fotos, ...pureData } = formData as any;
       const payload = { ...pureData, slug };
       
       const { data: imovelData, error: imovelError } = await supabase
@@ -234,7 +233,6 @@ const ImovelForm: React.FC = () => {
           <form id="imovel-form" onSubmit={handleSubmit} className="grid grid-cols-1 xl:grid-cols-12 gap-10">
             
             <div className="xl:col-span-8 space-y-10">
-              {/* 1. Identificação */}
               <section className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-10 space-y-8">
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center text-white font-black text-sm">1</div>
@@ -269,7 +267,6 @@ const ImovelForm: React.FC = () => {
                 </div>
               </section>
 
-              {/* 2. Dados da Propriedade */}
               <section className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-10 space-y-8">
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center text-white font-black text-sm">2</div>
@@ -307,7 +304,6 @@ const ImovelForm: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* RESTAURAÇÃO: Dormitórios, Suites, Banheiros, Vagas */}
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
                     <div className="space-y-2">
                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Dormitórios</label>
@@ -329,29 +325,6 @@ const ImovelForm: React.FC = () => {
                 </div>
               </section>
 
-              {/* 3. Localização */}
-              <section className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-10 space-y-8">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center text-white font-black text-sm">3</div>
-                  <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em]">LOCALIZAÇÃO</h3>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Bairro</label>
-                    <input type="text" value={formData.bairro || ''} onChange={e => setFormData({...formData, bairro: e.target.value})} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Cidade</label>
-                    <input type="text" value={formData.cidade || ''} onChange={e => setFormData({...formData, cidade: e.target.value})} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">UF</label>
-                    <input type="text" maxLength={2} value={formData.uf || ''} onChange={e => setFormData({...formData, uf: e.target.value.toUpperCase()})} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-center" />
-                  </div>
-                </div>
-              </section>
-
-              {/* RESTAURAÇÃO: Marketing e Negociação (Chips e Descrição) */}
               <section className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-10 space-y-8">
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center text-white font-black text-sm">4</div>
@@ -366,7 +339,6 @@ const ImovelForm: React.FC = () => {
                       value={formData.descricao || ''} 
                       onChange={e => setFormData({...formData, descricao: e.target.value})}
                       className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-medium text-slate-600 outline-none focus:bg-white focus:border-indigo-200 transition-all resize-none"
-                      placeholder="Descreva os pontos fortes do imóvel..."
                     />
                   </div>
 
@@ -381,7 +353,7 @@ const ImovelForm: React.FC = () => {
                           className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${
                             formData.opcoes_negociacao?.includes(item) 
                               ? 'bg-slate-900 border-slate-900 text-white' 
-                              : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-slate-300'
+                              : 'bg-slate-50 border-slate-100 text-slate-400'
                           }`}
                         >
                           {item}
@@ -392,7 +364,6 @@ const ImovelForm: React.FC = () => {
                 </div>
               </section>
 
-              {/* Chips Características */}
               <section className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-10 space-y-8">
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center text-white font-black text-sm">6</div>
@@ -423,7 +394,6 @@ const ImovelForm: React.FC = () => {
             </div>
 
             <div className="xl:col-span-4 space-y-10">
-              {/* Toggles */}
               <section className="bg-slate-950 rounded-[3rem] p-10 text-white space-y-8">
                  <h3 className="text-[11px] font-black uppercase opacity-40">CONFIGURAÇÕES</h3>
                  <div className="space-y-6">
@@ -442,8 +412,7 @@ const ImovelForm: React.FC = () => {
                  </div>
               </section>
 
-              {/* Galeria */}
-              <section className="bg-white rounded-[2.5rem] border border-slate-100 p-8 space-y-6 shadow-sm">
+              <section className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm space-y-6">
                 <h3 className="text-[10px] font-black text-slate-900 uppercase">GALERIA ({images.length}/15)</h3>
                 <div className="grid grid-cols-3 gap-3">
                    {images.map((img, i) => (
@@ -455,7 +424,7 @@ const ImovelForm: React.FC = () => {
                      </div>
                    ))}
                    {images.length < 15 && (
-                     <div onClick={() => fileInputRef.current?.click()} className="aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex items-center justify-center text-slate-300 cursor-pointer hover:border-indigo-400 hover:text-indigo-400">
+                     <div onClick={() => fileInputRef.current?.click()} className="aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex items-center justify-center text-slate-300 cursor-pointer">
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" strokeWidth="3" strokeLinecap="round" /></svg>
                      </div>
                    )}
