@@ -19,36 +19,94 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [recentLeads, setRecentLeads] = useState<Lead[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(true);
-
-  // Métricas com placeholders '--' prontas para integração
-  const metrics = [
-    { title: 'Imóveis Ativos', value: '--', change: '--%', isPositive: true, icon: <Icons.Dashboard /> },
-    { title: 'Novos Leads', value: '--', change: '--%', isPositive: true, icon: <Icons.Users /> },
-    { title: 'Visualizações', value: '--k', change: '--%', isPositive: false, icon: <Icons.Orders /> },
-    { title: 'Conversão', value: '--%', change: '--', isPositive: true, icon: <Icons.Settings /> },
-  ];
+  
+  // Estados para as métricas reais
+  const [stats, setStats] = useState({
+    ativos: 0,
+    inativos: 0,
+    leadsTotal: 0,
+    leadsSite: 0,
+    leadsWA: 0
+  });
 
   useEffect(() => {
-    fetchRecentLeads();
+    fetchDashboardData();
   }, []);
 
-  const fetchRecentLeads = async () => {
+  const fetchDashboardData = async () => {
     try {
       setLoadingLeads(true);
-      const { data, error } = await supabase
+      
+      // 1. Busca leads recentes para a lista
+      const { data: leadsData, error: leadsError } = await supabase
         .from('leads')
         .select('id, nome, telefone, imovel_interesse, origem, created_at')
         .order('created_at', { ascending: false })
         .limit(5);
 
-      if (error) throw error;
-      setRecentLeads(data || []);
+      if (leadsError) throw leadsError;
+      setRecentLeads(leadsData || []);
+
+      // 2. Busca métricas para os cards (Consultas head:true para performance)
+      const [
+        { count: ativosCount },
+        { count: inativosCount },
+        { count: totalLeadsCount },
+        { count: siteLeadsCount },
+        { count: waLeadsCount }
+      ] = await Promise.all([
+        supabase.from('imoveis').select('*', { count: 'exact', head: true }).eq('status', 'ativo'),
+        supabase.from('imoveis').select('*', { count: 'exact', head: true }).eq('status', 'inativo'),
+        supabase.from('leads').select('*', { count: 'exact', head: true }),
+        supabase.from('leads').select('*', { count: 'exact', head: true }).neq('origem', 'whatsapp'),
+        supabase.from('leads').select('*', { count: 'exact', head: true }).eq('origem', 'whatsapp')
+      ]);
+
+      setStats({
+        ativos: ativosCount || 0,
+        inativos: inativosCount || 0,
+        leadsTotal: totalLeadsCount || 0,
+        leadsSite: siteLeadsCount || 0,
+        leadsWA: waLeadsCount || 0
+      });
+
     } catch (err) {
-      console.error('Erro ao buscar leads recentes:', err);
+      console.error('Erro ao buscar dados do dashboard:', err);
     } finally {
       setLoadingLeads(false);
     }
   };
+
+  const metrics = [
+    { 
+      title: 'Imóveis Ativos', 
+      value: stats.ativos.toString(), 
+      change: '--', 
+      isPositive: true, 
+      icon: <Icons.Dashboard /> 
+    },
+    { 
+      title: 'Imóveis Inativos', 
+      value: stats.inativos.toString(), 
+      change: '--', 
+      isPositive: false, 
+      icon: <Icons.Building /> 
+    },
+    { 
+      title: 'Total de Leads', 
+      value: stats.leadsTotal.toString(), 
+      change: '--', 
+      isPositive: true, 
+      icon: <Icons.Users /> 
+    },
+    { 
+      title: 'Origem (SITE / WA)', 
+      value: `${stats.leadsSite} / ${stats.leadsWA}`, 
+      change: '--', 
+      isPositive: true, 
+      icon: <Icons.Settings /> 
+    },
+  ];
 
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
