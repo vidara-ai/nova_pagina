@@ -41,4 +41,5 @@ export interface StatCardProps {
   change: string;
   isPositive: boolean;
   icon: React.ReactNode;
+  onClick?: () => void;
 }
