@@ -10,7 +10,7 @@ interface PhotoItem {
   id: string;
   file: File | null;
   preview: string;
-  path?: string;
+  path?: string; // Caminho relativo no storage
   isNew: boolean;
 }
 
@@ -39,7 +39,7 @@ const INITIAL_FORM_STATE: Partial<Imovel> = {
   opcoes_negociacao: []
 };
 
-// Gerador seguindo o formato yymmddhhmm conforme solicitado
+// Gerador seguindo o formato rigoroso yymmddhhmm
 const generateUniqueCode = () => {
   const now = new Date();
   const yy = String(now.getFullYear()).slice(-2);
@@ -161,26 +161,38 @@ const ImovelForm: React.FC = () => {
     setLoading(true);
 
     try {
-      // 1. Salvar ou atualizar o imóvel
-      const slug = formData.titulo?.toLowerCase()
+      // 1. Upsert do imóvel
+      const slug = (formData.titulo || '')
+        .toLowerCase()
         .normalize('NFD').replace(/[\u0300-\u036f]/g, "")
         .replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '');
 
       const { data: savedImovel, error: imovelError } = await supabase
         .from('imoveis')
-        .upsert({ ...formData, slug, imoveis_fotos: undefined } as any)
+        .upsert({ 
+          ...formData, 
+          slug, 
+          imoveis_fotos: undefined // Removido para evitar erro no payload de upsert
+        } as any)
         .select()
         .single();
 
       if (imovelError) throw imovelError;
 
-      // 2. Processar uploads para Supabase Storage e coletar paths
-      const finalPhotoPaths = await Promise.all(photos.map(async (p, idx) => {
-        if (!p.isNew) return { path: p.path!, ordem: idx };
+      // 2. Upload para Supabase Storage
+      const photoRecords = await Promise.all(photos.map(async (p, idx) => {
+        if (!p.isNew) {
+          return { 
+            imovel_id: savedImovel.id, 
+            path: p.path!, 
+            ordem: idx, 
+            is_capa: idx === 0 
+          };
+        }
 
-        const fileExt = p.file!.name.split('.').pop();
+        const fileExt = p.file!.name.split('.').pop() || 'jpg';
         const fileName = `${Date.now()}_${idx}.${fileExt}`;
-        // Caminho obrigatório: imoveis/{codigo_imovel}/{nome_do_arquivo}
+        // Arquitetura obrigatória: imoveis/{codigo_imovel}/{nome_do_arquivo}
         const storagePath = `${formData.codigo_imovel}/${fileName}`;
 
         const { data: uploadData, error: uploadError } = await supabase.storage
@@ -188,27 +200,29 @@ const ImovelForm: React.FC = () => {
           .upload(storagePath, p.file!);
 
         if (uploadError) throw uploadError;
-        return { path: uploadData.path, ordem: idx };
+
+        return { 
+          imovel_id: savedImovel.id, 
+          path: uploadData.path, 
+          ordem: idx, 
+          is_capa: idx === 0 
+        };
       }));
 
-      // 3. Atualizar registros na tabela imoveis_fotos
-      // Primeiro remove os antigos para reinserir com a nova ordem/novas fotos
+      // 3. Sincronização com a tabela imoveis_fotos
+      // Excluímos as referências antigas para manter a integridade da ordem e das novas fotos
       await supabase.from('imoveis_fotos').delete().eq('imovel_id', savedImovel.id);
       
-      const photosToInsert = finalPhotoPaths.map((p, idx) => ({
-        imovel_id: savedImovel.id,
-        path: p.path,
-        ordem: idx,
-        is_capa: idx === 0
-      }));
+      const { error: insertError } = await supabase
+        .from('imoveis_fotos')
+        .insert(photoRecords);
 
-      const { error: photosError } = await supabase.from('imoveis_fotos').insert(photosToInsert);
-      if (photosError) throw photosError;
+      if (insertError) throw insertError;
 
-      alert('Imóvel e fotos salvos com sucesso!');
+      alert('Imóvel publicado com sucesso!');
       navigate('/imoveis');
     } catch (err: any) {
-      alert(`Erro no processo: ${err.message}`);
+      alert(`Falha no salvamento: ${err.message}`);
       console.error(err);
     } finally {
       setLoading(false);
@@ -219,7 +233,7 @@ const ImovelForm: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
       <div className="flex flex-col items-center gap-4">
         <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Recuperando Ficha Técnica...</p>
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Processando Dados...</p>
       </div>
     </div>
   );
@@ -232,13 +246,13 @@ const ImovelForm: React.FC = () => {
           <div className="flex flex-col">
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">Gestão de Inventário</span>
             <h1 className="text-sm font-black uppercase text-slate-900 mt-1">
-              {id ? `Editando: ${formData.codigo_imovel}` : 'Cadastrar Imóvel Exclusivo'}
+              {id ? `Editando: ${formData.codigo_imovel}` : 'Novo Imóvel Exclusivo'}
             </h1>
           </div>
           <div className="flex gap-3">
             <button onClick={() => navigate('/imoveis')} type="button" className="px-6 py-2.5 bg-white border border-slate-200 text-slate-400 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all">Cancelar</button>
             <button form="imovel-form" disabled={loading} className="px-8 py-2.5 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50">
-              {loading ? 'Processando...' : 'Confirmar Publicação'}
+              {loading ? 'Sincronizando...' : 'Salvar Propriedade'}
             </button>
           </div>
         </header>
@@ -246,24 +260,23 @@ const ImovelForm: React.FC = () => {
         <main className="p-8 md:p-12 max-w-[1400px] mx-auto w-full">
           <form id="imovel-form" onSubmit={handleSubmit} className="grid grid-cols-1 xl:grid-cols-12 gap-10">
             <div className="xl:col-span-8 space-y-10">
-              {/* Seções do Formulário Reutilizadas */}
               <section className="bg-white rounded-[2.5rem] border border-slate-100 p-10 space-y-8 shadow-sm">
                 <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
                   <span className="w-8 h-8 bg-slate-950 text-white rounded-lg flex items-center justify-center text-[10px]">01</span>
-                  Identificação
+                  Identificação do Ativo
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Ref. Interna</label>
-                    <input value={formData.referencia || ''} onChange={e => setFormData({...formData, referencia: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold focus:bg-white focus:border-indigo-200 outline-none transition-all" />
-                  </div>
                   <div className="space-y-1.5">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Cód. Sistema</label>
                     <input readOnly value={formData.codigo_imovel || ''} className="w-full px-5 py-3.5 bg-slate-100 border border-slate-100 rounded-2xl text-xs font-black text-slate-400 cursor-not-allowed" />
                   </div>
                   <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Ref. Interna</label>
+                    <input value={formData.referencia || ''} onChange={e => setFormData({...formData, referencia: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold focus:bg-white focus:border-indigo-200 outline-none transition-all" />
+                  </div>
+                  <div className="space-y-1.5">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Status</label>
-                    <select value={formData.status_imovel} onChange={e => setFormData({...formData, status_imovel: e.target.value as any})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none">
+                    <select value={formData.status_imovel} onChange={e => setFormData({...formData, status_imovel: e.target.value as any})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none cursor-pointer">
                       <option value="Disponível">Disponível</option>
                       <option value="Vendido">Vendido</option>
                       <option value="Alugado">Alugado</option>
@@ -272,10 +285,10 @@ const ImovelForm: React.FC = () => {
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Finalidade</label>
-                    <select value={formData.finalidade} onChange={e => setFormData({...formData, finalidade: e.target.value as any})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none">
+                    <select value={formData.finalidade} onChange={e => setFormData({...formData, finalidade: e.target.value as any})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none cursor-pointer">
                       <option value="venda">Venda</option>
                       <option value="locacao">Aluguel</option>
-                      <option value="venda_locacao">Ambos</option>
+                      <option value="venda_locacao">Venda e Aluguel</option>
                     </select>
                   </div>
                 </div>
@@ -288,11 +301,11 @@ const ImovelForm: React.FC = () => {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="md:col-span-2 space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Título do Anúncio</label>
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Título da Oferta</label>
                     <input required value={formData.titulo || ''} onChange={e => setFormData({...formData, titulo: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold focus:bg-white focus:border-indigo-200 outline-none transition-all" />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Tipo</label>
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Tipo de Imóvel</label>
                     <select value={formData.tipo_imovel} onChange={e => setFormData({...formData, tipo_imovel: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none">
                       <option>Apartamento</option>
                       <option>Casa</option>
@@ -302,7 +315,7 @@ const ImovelForm: React.FC = () => {
                     </select>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Investimento (R$)</label>
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Preço Base (R$)</label>
                     <input type="number" value={formData.finalidade === 'locacao' ? formData.valor_locacao : formData.valor_venda} onChange={e => setFormData({...formData, [formData.finalidade === 'locacao' ? 'valor_locacao' : 'valor_venda']: Number(e.target.value)})} className="w-full px-5 py-3.5 bg-indigo-50 border border-indigo-100 rounded-2xl text-xs font-black text-indigo-600 outline-none" />
                   </div>
                 </div>
@@ -325,7 +338,7 @@ const ImovelForm: React.FC = () => {
               <section className="bg-white rounded-[2.5rem] border border-slate-100 p-10 space-y-8 shadow-sm">
                 <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
                   <span className="w-8 h-8 bg-slate-950 text-white rounded-lg flex items-center justify-center text-[10px]">03</span>
-                  Características
+                  Características e Diferenciais
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {LISTA_CARACTERISTICAS_IMOVEL.map(item => (
@@ -339,10 +352,10 @@ const ImovelForm: React.FC = () => {
               <section className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm space-y-8 flex flex-col min-h-[500px]">
                 <div className="flex items-center justify-between">
                   <div className="flex flex-col">
-                    <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-900">Galeria Visual</h3>
-                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">Limite: 15 arquivos</span>
+                    <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-900">Mídia Visual</h3>
+                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">Limite: 15 imagens</span>
                   </div>
-                  <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2.5 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"><Icons.Plus /></button>
+                  <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2.5 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50" disabled={photos.length >= 15}><Icons.Plus /></button>
                   <input ref={fileInputRef} type="file" multiple accept="image/*" className="hidden" onChange={handleFileSelection} />
                 </div>
                 <div className="grid grid-cols-2 gap-4 overflow-y-auto max-h-[600px] pr-2 custom-scrollbar">
@@ -359,12 +372,41 @@ const ImovelForm: React.FC = () => {
                       <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-lg text-[8px] font-black text-slate-900 uppercase shadow-sm tracking-widest">{idx === 0 ? '⭐ Capa' : `#${idx + 1}`}</div>
                     </div>
                   ))}
+                  {photos.length === 0 && (
+                    <div className="col-span-2 py-10 flex flex-col items-center justify-center text-center opacity-40">
+                      <Icons.Dashboard />
+                      <span className="text-[9px] font-black uppercase mt-4">Nenhuma foto anexada</span>
+                    </div>
+                  )}
                 </div>
+              </section>
+
+              <section className="bg-slate-950 rounded-[2.5rem] p-10 text-white space-y-8 shadow-2xl">
+                 <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-indigo-400">Marketing e Exposição</h3>
+                 <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-widest">Destaque na Vitrine</span>
+                      <div onClick={() => setFormData({...formData, destaque: !formData.destaque})} className={`w-12 h-6 rounded-full relative cursor-pointer transition-all duration-500 ${formData.destaque ? 'bg-amber-500' : 'bg-white/10'}`}>
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-all duration-500 ${formData.destaque ? 'right-1' : 'left-1'}`}></div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-widest">Publicação Ativa</span>
+                      <div onClick={() => setFormData({...formData, ativo: !formData.ativo})} className={`w-12 h-6 rounded-full relative cursor-pointer transition-all duration-500 ${formData.ativo ? 'bg-indigo-600' : 'bg-white/10'}`}>
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-all duration-500 ${formData.ativo ? 'right-1' : 'left-1'}`}></div>
+                      </div>
+                    </div>
+                 </div>
+                 <div className="pt-6 border-t border-white/10">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-white/40 block mb-4">Texto Descritivo</label>
+                    <textarea rows={6} value={formData.descricao || ''} onChange={e => setFormData({...formData, descricao: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-3xl p-6 text-xs font-medium outline-none focus:border-indigo-500/50 transition-all resize-none leading-relaxed" placeholder="Descreva os diferenciais técnicos e emocionais..." />
+                 </div>
               </section>
             </div>
           </form>
         </main>
       </div>
+      <style>{`.custom-scrollbar::-webkit-scrollbar { width: 4px; } .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 10px; }`}</style>
     </div>
   );
 };
