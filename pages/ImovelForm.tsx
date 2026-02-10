@@ -40,10 +40,9 @@ const INITIAL_FORM_STATE: Partial<Imovel> = {
 
 const WORKER_URL = 'https://orange.corretorprime36.workers.dev';
 
-// Gerador de código único com alta entropia para evitar violação de constraint
 const generateUniqueCode = () => {
   const now = new Date();
-  const datePart = now.toISOString().replace(/[-T]/g, '').slice(2, 10); // YYMMDD
+  const datePart = now.toISOString().replace(/[-T]/g, '').slice(2, 10);
   const timePart = now.getHours().toString().padStart(2, '0') + now.getMinutes().toString().padStart(2, '0');
   const randomPart = Math.random().toString(36).substring(2, 5).toUpperCase();
   return `IMV-${datePart}${timePart}-${randomPart}`;
@@ -64,10 +63,7 @@ const ImovelForm: React.FC = () => {
     if (id) {
       fetchImovel();
     } else {
-      setFormData({
-        ...INITIAL_FORM_STATE,
-        codigo_imovel: generateUniqueCode()
-      });
+      setFormData({ ...INITIAL_FORM_STATE, codigo_imovel: generateUniqueCode() });
     }
   }, [id]);
 
@@ -83,7 +79,6 @@ const ImovelForm: React.FC = () => {
       if (error) throw error;
       
       if (data) {
-        // HIDRATAÇÃO GARANTIDA: Transforma nulls do banco em arrays vazios para o React renderizar
         setFormData({
           ...INITIAL_FORM_STATE,
           ...data,
@@ -164,41 +159,45 @@ const ImovelForm: React.FC = () => {
         .normalize('NFD').replace(/[\u0300-\u036f]/g, "")
         .replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '');
 
-      // 1. Salva ou atualiza o imóvel
       const { data: savedImovel, error: imovelError } = await supabase
         .from('imoveis')
-        .upsert({ 
-          ...formData, 
-          slug,
-          imoveis_fotos: undefined // Removido para não tentar upsertar relação direta
-        } as any)
+        .upsert({ ...formData, slug, imoveis_fotos: undefined } as any)
         .select()
         .single();
 
       if (imovelError) throw imovelError;
 
-      // 2. Upload para R2 via Worker Orange (Tratamento CORS e multipart)
+      // 2. Fluxo de Upload com Token HMAC (POST)
       const finalPhotos = await Promise.all(photos.map(async (p, idx) => {
         if (!p.isNew) return { url: p.url!, ordem: idx };
 
         const ext = p.file!.name.split('.').pop() || 'jpg';
         const fileName = `imoveis/${savedImovel.id}/${Date.now()}-${idx}.${ext}`;
         
-        const response = await fetch(`${WORKER_URL}/${fileName}`, {
-          method: 'PUT',
-          body: p.file,
-          headers: { 
-            'Content-Type': p.file!.type,
-          }
+        // Passo A: Obter Token
+        const tokenResponse = await fetch(`${WORKER_URL}/upload-token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: fileName })
         });
+        const { token, expiry } = await tokenResponse.json();
 
-        if (!response.ok) throw new Error(`Upload falhou no Worker Orange: ${response.statusText}`);
+        // Passo B: Upload via POST validado
+        const uploadResponse = await fetch(
+          `${WORKER_URL}/upload?path=${fileName}&token=${encodeURIComponent(token)}&expiry=${expiry}`, 
+          {
+            method: 'POST',
+            body: p.file,
+            headers: { 'Content-Type': p.file!.type }
+          }
+        );
+
+        if (!uploadResponse.ok) throw new Error(`Upload falhou: ${uploadResponse.statusText}`);
         
-        const resData = await response.json();
+        const resData = await uploadResponse.json();
         return { url: resData.url, ordem: idx };
       }));
 
-      // 3. Sincroniza fotos no banco de dados
       await supabase.from('imoveis_fotos').delete().eq('imovel_id', savedImovel.id);
       
       const { error: photosError } = await supabase.from('imoveis_fotos').insert(
@@ -235,7 +234,6 @@ const ImovelForm: React.FC = () => {
     <div className="min-h-screen bg-[#FDFDFD] flex font-['Inter',_sans-serif] antialiased">
       <Sidebar />
       <div className="flex-1 lg:ml-64 flex flex-col min-w-0">
-        
         <header className="h-20 w-full bg-white/80 backdrop-blur-xl border-b border-slate-100 flex items-center px-8 md:px-12 justify-between sticky top-0 z-40">
           <div className="flex flex-col">
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">Gestão de Inventário</span>
@@ -253,10 +251,7 @@ const ImovelForm: React.FC = () => {
 
         <main className="p-8 md:p-12 max-w-[1400px] mx-auto w-full">
           <form id="imovel-form" onSubmit={handleSubmit} className="grid grid-cols-1 xl:grid-cols-12 gap-10">
-            
             <div className="xl:col-span-8 space-y-10">
-              
-              {/* STATUS E IDENTIFICAÇÃO */}
               <section className="bg-white rounded-[2.5rem] border border-slate-100 p-10 space-y-8 shadow-sm">
                 <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
                   <span className="w-8 h-8 bg-slate-950 text-white rounded-lg flex items-center justify-center text-[10px]">01</span>
@@ -291,7 +286,6 @@ const ImovelForm: React.FC = () => {
                 </div>
               </section>
 
-              {/* DADOS BÁSICOS */}
               <section className="bg-white rounded-[2.5rem] border border-slate-100 p-10 space-y-8 shadow-sm">
                 <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
                   <span className="w-8 h-8 bg-slate-950 text-white rounded-lg flex items-center justify-center text-[10px]">02</span>
@@ -334,7 +328,6 @@ const ImovelForm: React.FC = () => {
                 </div>
               </section>
 
-              {/* CARACTERÍSTICAS DA UNIDADE */}
               <section className="bg-white rounded-[2.5rem] border border-slate-100 p-10 space-y-8 shadow-sm">
                 <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
                   <span className="w-8 h-8 bg-slate-950 text-white rounded-lg flex items-center justify-center text-[10px]">03</span>
@@ -342,23 +335,11 @@ const ImovelForm: React.FC = () => {
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {LISTA_CARACTERISTICAS_IMOVEL.map(item => (
-                    <button 
-                      key={item} 
-                      type="button"
-                      onClick={() => toggleChip('caracteristicas_imovel', item)}
-                      className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
-                        formData.caracteristicas_imovel?.includes(item) 
-                        ? 'bg-slate-900 text-white border-slate-900 shadow-md' 
-                        : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'
-                      }`}
-                    >
-                      {item}
-                    </button>
+                    <button key={item} type="button" onClick={() => toggleChip('caracteristicas_imovel', item)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${formData.caracteristicas_imovel?.includes(item) ? 'bg-slate-900 text-white border-slate-900 shadow-md' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'}`}>{item}</button>
                   ))}
                 </div>
               </section>
 
-              {/* CARACTERÍSTICAS DO CONDOMÍNIO (RESTAURADO) */}
               <section className="bg-white rounded-[2.5rem] border border-slate-100 p-10 space-y-8 shadow-sm">
                 <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
                   <span className="w-8 h-8 bg-indigo-600 text-white rounded-lg flex items-center justify-center text-[10px]">04</span>
@@ -366,66 +347,30 @@ const ImovelForm: React.FC = () => {
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {LISTA_CARACTERISTICAS_CONDOMINIO.map(item => (
-                    <button 
-                      key={item} 
-                      type="button"
-                      onClick={() => toggleChip('caracteristicas_condominio', item)}
-                      className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
-                        formData.caracteristicas_condominio?.includes(item) 
-                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' 
-                        : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'
-                      }`}
-                    >
-                      {item}
-                    </button>
+                    <button key={item} type="button" onClick={() => toggleChip('caracteristicas_condominio', item)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${formData.caracteristicas_condominio?.includes(item) ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'}`}>{item}</button>
                   ))}
                 </div>
               </section>
 
-              {/* OPÇÕES DE NEGOCIAÇÃO E GARANTIAS (RESTAURADO) */}
               <section className="bg-white rounded-[2.5rem] border border-slate-100 p-10 space-y-10 shadow-sm">
                 <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
                   <span className="w-8 h-8 bg-emerald-600 text-white rounded-lg flex items-center justify-center text-[10px]">05</span>
                   Negociação e Garantias
                 </h3>
-                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                   <div className="space-y-4">
                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-50 pb-2">Pagamento</h4>
                     <div className="flex flex-wrap gap-2">
                       {LISTA_PAGAMENTO.map(item => (
-                        <button 
-                          key={item} 
-                          type="button"
-                          onClick={() => toggleChip('opcoes_negociacao', item)}
-                          className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all border ${
-                            formData.opcoes_negociacao?.includes(item) 
-                            ? 'bg-emerald-600 text-white border-emerald-600' 
-                            : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'
-                          }`}
-                        >
-                          {item}
-                        </button>
+                        <button key={item} type="button" onClick={() => toggleChip('opcoes_negociacao', item)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all border ${formData.opcoes_negociacao?.includes(item) ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'}`}>{item}</button>
                       ))}
                     </div>
                   </div>
-
                   <div className="space-y-4">
                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-50 pb-2">Locação (Garantias)</h4>
                     <div className="flex flex-wrap gap-2">
                       {LISTA_GARANTIAS.map(item => (
-                        <button 
-                          key={item} 
-                          type="button"
-                          onClick={() => toggleChip('opcoes_negociacao', item)}
-                          className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all border ${
-                            formData.opcoes_negociacao?.includes(item) 
-                            ? 'bg-amber-600 text-white border-amber-600' 
-                            : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'
-                          }`}
-                        >
-                          {item}
-                        </button>
+                        <button key={item} type="button" onClick={() => toggleChip('opcoes_negociacao', item)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all border ${formData.opcoes_negociacao?.includes(item) ? 'bg-amber-600 text-white border-amber-600' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'}`}>{item}</button>
                       ))}
                     </div>
                   </div>
@@ -433,65 +378,30 @@ const ImovelForm: React.FC = () => {
               </section>
             </div>
 
-            {/* SIDEBAR GALERIA */}
             <div className="xl:col-span-4 space-y-10">
-              
               <section className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm space-y-8 flex flex-col min-h-[500px]">
                 <div className="flex items-center justify-between">
                   <div className="flex flex-col">
                     <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-900">Galeria Visual</h3>
                     <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">Limite: 15 arquivos</span>
                   </div>
-                  <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2.5 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95">
-                    <Icons.Plus />
-                  </button>
+                  <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2.5 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"><Icons.Plus /></button>
                   <input ref={fileInputRef} type="file" multiple accept="image/*" className="hidden" onChange={handleFileSelection} />
                 </div>
-
                 <div className="grid grid-cols-2 gap-4 overflow-y-auto max-h-[600px] pr-2 custom-scrollbar">
                   {photos.map((photo, idx) => (
-                    <div 
-                      key={photo.id}
-                      draggable
-                      onDragStart={() => setDraggedIndex(idx)}
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        if (draggedIndex === null || draggedIndex === idx) return;
-                        reorderPhotos(draggedIndex, idx);
-                        setDraggedIndex(idx);
-                      }}
-                      onDragEnd={() => setDraggedIndex(null)}
-                      className={`relative aspect-square rounded-[1.5rem] overflow-hidden bg-slate-50 border group cursor-move shadow-sm transition-all hover:scale-[1.03] ${idx === 0 ? 'border-indigo-400 ring-2 ring-indigo-50' : 'border-slate-100'}`}
-                    >
+                    <div key={photo.id} className={`relative aspect-square rounded-[1.5rem] overflow-hidden bg-slate-50 border group cursor-move shadow-sm transition-all hover:scale-[1.03] ${idx === 0 ? 'border-indigo-400 ring-2 ring-indigo-50' : 'border-slate-100'}`}>
                       <img src={photo.preview} className="w-full h-full object-cover" alt="" />
                       <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-4">
                         <div className="flex gap-2">
-                           {idx > 0 && (
-                             <button type="button" onClick={() => reorderPhotos(idx, idx - 1)} className="p-2 bg-white text-slate-900 rounded-lg shadow-lg hover:bg-indigo-50">
-                               <Icons.ArrowUp />
-                             </button>
-                           )}
-                           {idx < photos.length - 1 && (
-                             <button type="button" onClick={() => reorderPhotos(idx, idx + 1)} className="p-2 bg-white text-slate-900 rounded-lg shadow-lg hover:bg-indigo-50">
-                               <Icons.ArrowDown />
-                             </button>
-                           )}
+                           {idx > 0 && <button type="button" onClick={() => reorderPhotos(idx, idx - 1)} className="p-2 bg-white text-slate-900 rounded-lg shadow-lg hover:bg-indigo-50"><Icons.ArrowUp /></button>}
+                           {idx < photos.length - 1 && <button type="button" onClick={() => reorderPhotos(idx, idx + 1)} className="p-2 bg-white text-slate-900 rounded-lg shadow-lg hover:bg-indigo-50"><Icons.ArrowDown /></button>}
                         </div>
-                        <button type="button" onClick={() => removePhoto(idx)} className="p-2.5 bg-rose-500 text-white rounded-xl shadow-lg hover:bg-rose-600 transition-all">
-                          <Icons.Trash />
-                        </button>
+                        <button type="button" onClick={() => removePhoto(idx)} className="p-2.5 bg-rose-500 text-white rounded-xl shadow-lg hover:bg-rose-600 transition-all"><Icons.Trash /></button>
                       </div>
-                      <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-lg text-[8px] font-black text-slate-900 uppercase shadow-sm tracking-widest">
-                        {idx === 0 ? '⭐ Capa' : `#${idx + 1}`}
-                      </div>
+                      <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-lg text-[8px] font-black text-slate-900 uppercase shadow-sm tracking-widest">{idx === 0 ? '⭐ Capa' : `#${idx + 1}`}</div>
                     </div>
                   ))}
-                  {photos.length === 0 && (
-                    <div className="col-span-2 py-24 border-2 border-dashed border-slate-100 rounded-[2rem] flex flex-col items-center justify-center text-slate-300">
-                      <Icons.Building />
-                      <p className="text-[9px] font-black uppercase mt-4 tracking-widest text-center px-4">Arraste as fotos para cá</p>
-                    </div>
-                  )}
                 </div>
               </section>
 
@@ -519,7 +429,6 @@ const ImovelForm: React.FC = () => {
                       </div>
                     </div>
                  </div>
-                 
                  <div className="pt-8 border-t border-white/10 space-y-4">
                     <div className="flex items-center gap-2">
                       <Icons.Settings />
@@ -528,18 +437,11 @@ const ImovelForm: React.FC = () => {
                     <textarea rows={8} value={formData.descricao || ''} onChange={e => setFormData({...formData, descricao: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-3xl p-6 text-xs font-medium outline-none focus:border-indigo-500/50 transition-all resize-none leading-relaxed placeholder:text-white/10" placeholder="Redija os diferenciais técnicos e emocionais da propriedade..." />
                  </div>
               </section>
-
             </div>
           </form>
         </main>
       </div>
-      
-      <style>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
-      `}</style>
+      <style>{`.custom-scrollbar::-webkit-scrollbar { width: 4px; } .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 10px; } .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94A3B8; }`}</style>
     </div>
   );
 };
