@@ -1,15 +1,16 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import { Icons, LISTA_CARACTERISTICAS_IMOVEL, LISTA_CARACTERISTICAS_CONDOMINIO, LISTA_PAGAMENTO, LISTA_GARANTIAS } from '../constants';
 import { supabase } from '../services/supabase';
-import { Imovel } from '../types';
+import { Imovel, ImovelFoto } from '../types';
 
 interface PhotoItem {
   id: string;
   file: File | null;
   preview: string;
-  url?: string;
+  path?: string;
   isNew: boolean;
 }
 
@@ -38,14 +39,15 @@ const INITIAL_FORM_STATE: Partial<Imovel> = {
   opcoes_negociacao: []
 };
 
-const WORKER_URL = 'https://orange.corretorprime36.workers.dev';
-
+// Gerador seguindo o formato yymmddhhmm conforme solicitado
 const generateUniqueCode = () => {
   const now = new Date();
-  const datePart = now.toISOString().replace(/[-T]/g, '').slice(2, 10);
-  const timePart = now.getHours().toString().padStart(2, '0') + now.getMinutes().toString().padStart(2, '0');
-  const randomPart = Math.random().toString(36).substring(2, 5).toUpperCase();
-  return `IMV-${datePart}${timePart}-${randomPart}`;
+  const yy = String(now.getFullYear()).slice(-2);
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const hh = String(now.getHours()).padStart(2, '0');
+  const min = String(now.getMinutes()).padStart(2, '0');
+  return `${yy}${mm}${dd}${hh}${min}`;
 };
 
 const ImovelForm: React.FC = () => {
@@ -57,7 +59,6 @@ const ImovelForm: React.FC = () => {
   const [fetching, setFetching] = useState(false);
   const [formData, setFormData] = useState<Partial<Imovel>>(INITIAL_FORM_STATE);
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -66,6 +67,11 @@ const ImovelForm: React.FC = () => {
       setFormData({ ...INITIAL_FORM_STATE, codigo_imovel: generateUniqueCode() });
     }
   }, [id]);
+
+  const getImageUrl = (path: string) => {
+    const { data } = supabase.storage.from('imoveis').getPublicUrl(path);
+    return data.publicUrl;
+  };
 
   const fetchImovel = async () => {
     setFetching(true);
@@ -92,10 +98,10 @@ const ImovelForm: React.FC = () => {
         const existingPhotos = (data.imoveis_fotos || [])
           .sort((a: any, b: any) => a.ordem - b.ordem)
           .map((img: any) => ({
-            id: img.id || Math.random().toString(36).substr(2, 9),
+            id: img.id,
             file: null,
-            preview: img.url,
-            url: img.url,
+            preview: getImageUrl(img.path),
+            path: img.path,
             isNew: false
           }));
         setPhotos(existingPhotos);
@@ -155,6 +161,7 @@ const ImovelForm: React.FC = () => {
     setLoading(true);
 
     try {
+      // 1. Salvar ou atualizar o imóvel
       const slug = formData.titulo?.toLowerCase()
         .normalize('NFD').replace(/[\u0300-\u036f]/g, "")
         .replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '');
@@ -167,54 +174,41 @@ const ImovelForm: React.FC = () => {
 
       if (imovelError) throw imovelError;
 
-      // 2. Fluxo de Upload com Token HMAC (POST)
-      const finalPhotos = await Promise.all(photos.map(async (p, idx) => {
-        if (!p.isNew) return { url: p.url!, ordem: idx };
+      // 2. Processar uploads para Supabase Storage e coletar paths
+      const finalPhotoPaths = await Promise.all(photos.map(async (p, idx) => {
+        if (!p.isNew) return { path: p.path!, ordem: idx };
 
-        const ext = p.file!.name.split('.').pop() || 'jpg';
-        const fileName = `imoveis/${savedImovel.id}/${Date.now()}-${idx}.${ext}`;
-        
-        // Passo A: Obter Token
-        const tokenResponse = await fetch(`${WORKER_URL}/upload-token`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: fileName })
-        });
-        const { token, expiry } = await tokenResponse.json();
+        const fileExt = p.file!.name.split('.').pop();
+        const fileName = `${Date.now()}_${idx}.${fileExt}`;
+        // Caminho obrigatório: imoveis/{codigo_imovel}/{nome_do_arquivo}
+        const storagePath = `${formData.codigo_imovel}/${fileName}`;
 
-        // Passo B: Upload via POST validado
-        const uploadResponse = await fetch(
-          `${WORKER_URL}/upload?path=${fileName}&token=${encodeURIComponent(token)}&expiry=${expiry}`, 
-          {
-            method: 'POST',
-            body: p.file,
-            headers: { 'Content-Type': p.file!.type }
-          }
-        );
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('imoveis')
+          .upload(storagePath, p.file!);
 
-        if (!uploadResponse.ok) throw new Error(`Upload falhou: ${uploadResponse.statusText}`);
-        
-        const resData = await uploadResponse.json();
-        return { url: resData.url, ordem: idx };
+        if (uploadError) throw uploadError;
+        return { path: uploadData.path, ordem: idx };
       }));
 
+      // 3. Atualizar registros na tabela imoveis_fotos
+      // Primeiro remove os antigos para reinserir com a nova ordem/novas fotos
       await supabase.from('imoveis_fotos').delete().eq('imovel_id', savedImovel.id);
       
-      const { error: photosError } = await supabase.from('imoveis_fotos').insert(
-        finalPhotos.map((p, idx) => ({
-          imovel_id: savedImovel.id,
-          url: p.url,
-          ordem: idx,
-          is_capa: idx === 0
-        }))
-      );
+      const photosToInsert = finalPhotoPaths.map((p, idx) => ({
+        imovel_id: savedImovel.id,
+        path: p.path,
+        ordem: idx,
+        is_capa: idx === 0
+      }));
 
+      const { error: photosError } = await supabase.from('imoveis_fotos').insert(photosToInsert);
       if (photosError) throw photosError;
 
-      alert('Propriedade salva com sucesso!');
+      alert('Imóvel e fotos salvos com sucesso!');
       navigate('/imoveis');
     } catch (err: any) {
-      alert(`Erro crítico: ${err.message}`);
+      alert(`Erro no processo: ${err.message}`);
       console.error(err);
     } finally {
       setLoading(false);
@@ -244,7 +238,7 @@ const ImovelForm: React.FC = () => {
           <div className="flex gap-3">
             <button onClick={() => navigate('/imoveis')} type="button" className="px-6 py-2.5 bg-white border border-slate-200 text-slate-400 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all">Cancelar</button>
             <button form="imovel-form" disabled={loading} className="px-8 py-2.5 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50">
-              {loading ? 'Salvando...' : 'Confirmar Publicação'}
+              {loading ? 'Processando...' : 'Confirmar Publicação'}
             </button>
           </div>
         </header>
@@ -252,6 +246,7 @@ const ImovelForm: React.FC = () => {
         <main className="p-8 md:p-12 max-w-[1400px] mx-auto w-full">
           <form id="imovel-form" onSubmit={handleSubmit} className="grid grid-cols-1 xl:grid-cols-12 gap-10">
             <div className="xl:col-span-8 space-y-10">
+              {/* Seções do Formulário Reutilizadas */}
               <section className="bg-white rounded-[2.5rem] border border-slate-100 p-10 space-y-8 shadow-sm">
                 <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
                   <span className="w-8 h-8 bg-slate-950 text-white rounded-lg flex items-center justify-center text-[10px]">01</span>
@@ -311,7 +306,6 @@ const ImovelForm: React.FC = () => {
                     <input type="number" value={formData.finalidade === 'locacao' ? formData.valor_locacao : formData.valor_venda} onChange={e => setFormData({...formData, [formData.finalidade === 'locacao' ? 'valor_locacao' : 'valor_venda']: Number(e.target.value)})} className="w-full px-5 py-3.5 bg-indigo-50 border border-indigo-100 rounded-2xl text-xs font-black text-indigo-600 outline-none" />
                   </div>
                 </div>
-
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
                    {[
                     { label: 'Área (m²)', key: 'area_m2' },
@@ -331,49 +325,12 @@ const ImovelForm: React.FC = () => {
               <section className="bg-white rounded-[2.5rem] border border-slate-100 p-10 space-y-8 shadow-sm">
                 <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
                   <span className="w-8 h-8 bg-slate-950 text-white rounded-lg flex items-center justify-center text-[10px]">03</span>
-                  Características da Unidade
+                  Características
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {LISTA_CARACTERISTICAS_IMOVEL.map(item => (
                     <button key={item} type="button" onClick={() => toggleChip('caracteristicas_imovel', item)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${formData.caracteristicas_imovel?.includes(item) ? 'bg-slate-900 text-white border-slate-900 shadow-md' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'}`}>{item}</button>
                   ))}
-                </div>
-              </section>
-
-              <section className="bg-white rounded-[2.5rem] border border-slate-100 p-10 space-y-8 shadow-sm">
-                <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
-                  <span className="w-8 h-8 bg-indigo-600 text-white rounded-lg flex items-center justify-center text-[10px]">04</span>
-                  Condomínio e Lazer
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {LISTA_CARACTERISTICAS_CONDOMINIO.map(item => (
-                    <button key={item} type="button" onClick={() => toggleChip('caracteristicas_condominio', item)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${formData.caracteristicas_condominio?.includes(item) ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'}`}>{item}</button>
-                  ))}
-                </div>
-              </section>
-
-              <section className="bg-white rounded-[2.5rem] border border-slate-100 p-10 space-y-10 shadow-sm">
-                <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
-                  <span className="w-8 h-8 bg-emerald-600 text-white rounded-lg flex items-center justify-center text-[10px]">05</span>
-                  Negociação e Garantias
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                  <div className="space-y-4">
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-50 pb-2">Pagamento</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {LISTA_PAGAMENTO.map(item => (
-                        <button key={item} type="button" onClick={() => toggleChip('opcoes_negociacao', item)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all border ${formData.opcoes_negociacao?.includes(item) ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'}`}>{item}</button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-50 pb-2">Locação (Garantias)</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {LISTA_GARANTIAS.map(item => (
-                        <button key={item} type="button" onClick={() => toggleChip('opcoes_negociacao', item)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all border ${formData.opcoes_negociacao?.includes(item) ? 'bg-amber-600 text-white border-amber-600' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'}`}>{item}</button>
-                      ))}
-                    </div>
-                  </div>
                 </div>
               </section>
             </div>
@@ -404,44 +361,10 @@ const ImovelForm: React.FC = () => {
                   ))}
                 </div>
               </section>
-
-              <section className="bg-slate-950 rounded-[2.5rem] p-10 text-white space-y-10 shadow-2xl">
-                 <div className="space-y-6">
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-indigo-400">Exposição de Mercado</h3>
-                    <div className="space-y-5">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <span className="text-[10px] font-black uppercase tracking-widest block">Imóvel Ativo</span>
-                          <span className="text-[8px] font-bold text-white/40 uppercase tracking-widest">Visível para o público final</span>
-                        </div>
-                        <div onClick={() => setFormData({...formData, ativo: !formData.ativo})} className={`w-12 h-6 rounded-full relative cursor-pointer transition-all duration-500 ${formData.ativo ? 'bg-indigo-600 shadow-indigo-400/30 shadow-lg' : 'bg-white/10'}`}>
-                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-all duration-500 ${formData.ativo ? 'right-1' : 'left-1'}`}></div>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <span className="text-[10px] font-black uppercase tracking-widest block">Destaque Premium</span>
-                          <span className="text-[8px] font-bold text-white/40 uppercase tracking-widest">Topo da vitrine principal</span>
-                        </div>
-                        <div onClick={() => setFormData({...formData, destaque: !formData.destaque})} className={`w-12 h-6 rounded-full relative cursor-pointer transition-all duration-500 ${formData.destaque ? 'bg-amber-500 shadow-amber-400/30 shadow-lg' : 'bg-white/10'}`}>
-                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-all duration-500 ${formData.destaque ? 'right-1' : 'left-1'}`}></div>
-                        </div>
-                      </div>
-                    </div>
-                 </div>
-                 <div className="pt-8 border-t border-white/10 space-y-4">
-                    <div className="flex items-center gap-2">
-                      <Icons.Settings />
-                      <label className="text-[9px] font-black uppercase tracking-[0.2em] text-white/50 block">Texto Descritivo</label>
-                    </div>
-                    <textarea rows={8} value={formData.descricao || ''} onChange={e => setFormData({...formData, descricao: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-3xl p-6 text-xs font-medium outline-none focus:border-indigo-500/50 transition-all resize-none leading-relaxed placeholder:text-white/10" placeholder="Redija os diferenciais técnicos e emocionais da propriedade..." />
-                 </div>
-              </section>
             </div>
           </form>
         </main>
       </div>
-      <style>{`.custom-scrollbar::-webkit-scrollbar { width: 4px; } .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 10px; } .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94A3B8; }`}</style>
     </div>
   );
 };

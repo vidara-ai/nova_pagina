@@ -14,11 +14,15 @@ const Home: React.FC = () => {
     fetchImoveis();
   }, []);
 
+  const getImageUrl = (path: string) => {
+    const { data } = supabase.storage.from('imoveis').getPublicUrl(path);
+    return data.publicUrl;
+  };
+
   async function fetchImoveis() {
     try {
       setLoading(true);
       
-      // Correção PGRST201: Usando !imoveis_fotos_imovel_id_fkey para resolver ambiguidade
       const { data, error } = await supabase
         .from('imoveis')
         .select(`
@@ -77,64 +81,69 @@ const Home: React.FC = () => {
           </div>
         ) : imoveis.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-            {imoveis.map((imovel) => (
-              <article 
-                key={imovel.id} 
-                className="group cursor-pointer bg-white rounded-[2.5rem] overflow-hidden border border-slate-50 hover:border-indigo-100 transition-all duration-500 hover:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)]"
-              >
-                <div className="relative aspect-[4/3] overflow-hidden">
-                  <img 
-                    src={imovel.imoveis_fotos && imovel.imoveis_fotos[0]?.url} 
-                    alt={imovel.titulo}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                  />
-                  {imovel.destaque && (
-                    <div className="absolute top-6 left-6 bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl text-[9px] font-black uppercase tracking-widest text-indigo-600 shadow-sm">
-                      Destaque
-                    </div>
-                  )}
-                  <div className="absolute bottom-6 left-6 right-6 flex justify-between items-end">
-                    <div className="bg-slate-900/80 backdrop-blur-md px-5 py-3 rounded-2xl text-white">
-                      <p className="text-[9px] font-bold uppercase tracking-widest opacity-60 mb-1">
-                        {imovel.valor_venda ? 'Venda' : 'Locação'}
-                      </p>
-                      <p className="text-sm font-black">
-                        {formatPrice(imovel.valor_venda || imovel.valor_locacao)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+            {imoveis.map((imovel) => {
+              const capafoto = imovel.imoveis_fotos?.find(f => f.is_capa) || imovel.imoveis_fotos?.[0];
+              const imageUrl = capafoto ? getImageUrl(capafoto.path) : '';
 
-                <div className="p-8 space-y-6">
-                  <div>
-                    <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight group-hover:text-indigo-600 transition-colors line-clamp-1">
-                      {imovel.titulo}
-                    </h3>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-2 flex items-center gap-2">
-                      <svg className="w-3 h-3 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                      {imovel.bairro}, {imovel.cidade}/{imovel.uf}
-                    </p>
+              return (
+                <article 
+                  key={imovel.id} 
+                  className="group cursor-pointer bg-white rounded-[2.5rem] overflow-hidden border border-slate-50 hover:border-indigo-100 transition-all duration-500 hover:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)]"
+                >
+                  <div className="relative aspect-[4/3] overflow-hidden">
+                    <img 
+                      src={imageUrl} 
+                      alt={imovel.titulo}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                    />
+                    {imovel.destaque && (
+                      <div className="absolute top-6 left-6 bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl text-[9px] font-black uppercase tracking-widest text-indigo-600 shadow-sm">
+                        Destaque
+                      </div>
+                    )}
+                    <div className="absolute bottom-6 left-6 right-6 flex justify-between items-end">
+                      <div className="bg-slate-900/80 backdrop-blur-md px-5 py-3 rounded-2xl text-white">
+                        <p className="text-[9px] font-bold uppercase tracking-widest opacity-60 mb-1">
+                          {imovel.valor_venda ? 'Venda' : 'Locação'}
+                        </p>
+                        <p className="text-sm font-black">
+                          {formatPrice(imovel.valor_venda || imovel.valor_locacao)}
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-6 border-t border-slate-50">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-black text-slate-900">{imovel.dormitorios}</span>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dorms</span>
+                  <div className="p-8 space-y-6">
+                    <div>
+                      <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight group-hover:text-indigo-600 transition-colors line-clamp-1">
+                        {imovel.titulo}
+                      </h3>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-2 flex items-center gap-2">
+                        <svg className="w-3 h-3 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        {imovel.bairro}, {imovel.cidade}/{imovel.uf}
+                      </p>
                     </div>
-                    <div className="w-1 h-1 bg-slate-200 rounded-full" />
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-black text-slate-900">{imovel.banheiros}</span>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Banhs</span>
-                    </div>
-                    <div className="w-1 h-1 bg-slate-200 rounded-full" />
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-black text-slate-900">{imovel.vagas_garagem}</span>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vagas</span>
+
+                    <div className="flex items-center justify-between pt-6 border-t border-slate-50">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-black text-slate-900">{imovel.dormitorios}</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dorms</span>
+                      </div>
+                      <div className="w-1 h-1 bg-slate-200 rounded-full" />
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-black text-slate-900">{imovel.banheiros}</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Banhs</span>
+                      </div>
+                      <div className="w-1 h-1 bg-slate-200 rounded-full" />
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-black text-slate-900">{imovel.vagas_garagem}</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vagas</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
         ) : (
           <div className="relative group overflow-hidden rounded-[4rem]">
@@ -155,7 +164,7 @@ const Home: React.FC = () => {
 
       <CorretorBlock 
         nome="Marlon Sales"
-        descricao="Transformando a complexa jornada imobiliária em uma experiência de sucesso absoluto."
+        descricao="Transformando a complexa jornada imobiliária em uma experiênca de sucesso absoluto."
         creci="4567891011"
         telefone="83 3221.0008"
         instagram="https://instagram.com/marlonsales"
