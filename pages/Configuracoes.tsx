@@ -70,7 +70,7 @@ const Configuracoes: React.FC = () => {
     try {
       setFetching(true);
       const { data, error } = await supabase
-        .from('configuracoes')
+        .from('configuracoes_site')
         .select('*')
         .maybeSingle();
 
@@ -124,7 +124,7 @@ const Configuracoes: React.FC = () => {
     setLoading(true);
     try {
       const { error } = await supabase
-        .from('configuracoes')
+        .from('configuracoes_site')
         .upsert({
           ...config,
           id: config.id || undefined, // Mantém o ID se existir para update
