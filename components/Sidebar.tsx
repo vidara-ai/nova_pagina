@@ -50,17 +50,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       <aside className={`fixed left-0 top-0 h-screen w-72 lg:w-64 bg-white border-r border-slate-100/80 p-8 flex flex-col gap-12 z-[70] transition-transform duration-500 ease-in-out lg:translate-x-0 ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
-        {/* Brand Logo & Close Button (Mobile) */}
+        {/* Brand Header */}
         <div className="flex items-center justify-between px-2">
           <div 
             onClick={() => handleNavigate('/')}
-            className="flex items-center gap-3 cursor-pointer group"
+            className="flex flex-col cursor-pointer"
           >
-            <div className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg shadow-indigo-100 group-hover:rotate-6 transition-transform">
-              N
-            </div>
-            <span className="text-xl font-black text-slate-900 tracking-tighter uppercase">
-              Nova<span className="text-indigo-600">Dash</span>
+            <span className="text-lg font-black text-slate-950 tracking-tighter uppercase leading-none">
+              Painel<br />
+              <span className="text-indigo-600">Administrativo</span>
             </span>
           </div>
           
@@ -104,17 +102,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             onClick={() => handleNavigate('/configuracoes')}
           />
         </nav>
-
-        {/* Account Widget */}
-        <div className="bg-slate-50 rounded-[2rem] p-8 border border-slate-100 mt-auto">
-          <div className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Plano Corporate</div>
-          <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-2 leading-relaxed">
-            Suporte prioritário ativo até 2026.
-          </p>
-          <button className="w-full mt-6 py-3 bg-white border border-slate-200 hover:border-indigo-600 hover:text-indigo-600 text-slate-900 text-[9px] font-black uppercase tracking-[0.2em] rounded-xl transition-all shadow-sm">
-            Gerenciar
-          </button>
-        </div>
       </aside>
     </>
   );
