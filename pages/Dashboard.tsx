@@ -1,10 +1,25 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Icons } from '../constants';
 import Sidebar from '../components/Sidebar';
 import StatCard from '../components/StatCard';
+import { supabase } from '../services/supabase';
+
+interface Lead {
+  id: string;
+  nome: string | null;
+  telefone: string | null;
+  imovel_interesse: string | null;
+  origem: string;
+  created_at: string;
+}
 
 const Dashboard: React.FC = () => {
+  const navigate = useNavigate();
+  const [recentLeads, setRecentLeads] = useState<Lead[]>([]);
+  const [loadingLeads, setLoadingLeads] = useState(true);
+
   // Métricas com placeholders '--' prontas para integração
   const metrics = [
     { title: 'Imóveis Ativos', value: '--', change: '--%', isPositive: true, icon: <Icons.Dashboard /> },
@@ -13,15 +28,49 @@ const Dashboard: React.FC = () => {
     { title: 'Conversão', value: '--%', change: '--', isPositive: true, icon: <Icons.Settings /> },
   ];
 
+  useEffect(() => {
+    fetchRecentLeads();
+  }, []);
+
+  const fetchRecentLeads = async () => {
+    try {
+      setLoadingLeads(true);
+      const { data, error } = await supabase
+        .from('leads')
+        .select('id, nome, telefone, imovel_interesse, origem, created_at')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+      setRecentLeads(data || []);
+    } catch (err) {
+      console.error('Erro ao buscar leads recentes:', err);
+    } finally {
+      setLoadingLeads(false);
+    }
+  };
+
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${day}/${month}, ${hours}:${minutes}`;
+  };
+
+  const openWhatsApp = (lead: Lead) => {
+    if (!lead.telefone) return;
+    const cleanPhone = lead.telefone.replace(/\D/g, '');
+    window.open(`https://wa.me/55${cleanPhone}`, '_blank');
+  };
+
   return (
     <div className="min-h-screen bg-[#FDFDFD] flex font-['Inter',_sans-serif] antialiased">
-      {/* Sidebar Fixa - Proporção Exata */}
       <Sidebar />
 
-      {/* Main Layout Container */}
       <div className="flex-1 lg:ml-64 flex flex-col min-w-0">
         
-        {/* Header Premium - Glassmorphism & Alignment */}
         <header className="h-20 w-full bg-white/70 backdrop-blur-xl border-b border-slate-100/80 flex items-center px-8 md:px-12 justify-between sticky top-0 z-40">
           <div className="flex items-center gap-4">
             <div className="hidden md:flex items-center gap-2 text-slate-300">
@@ -44,10 +93,8 @@ const Dashboard: React.FC = () => {
           </div>
         </header>
 
-        {/* Dash Content Area */}
         <main className="p-8 md:p-12 max-w-[1600px] mx-auto w-full space-y-12 animate-in fade-in duration-700">
           
-          {/* Welcome Header Section */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
             <div className="space-y-2">
               <h2 className="text-4xl md:text-5xl font-black text-slate-950 uppercase tracking-tighter leading-[0.85]">
@@ -62,83 +109,87 @@ const Dashboard: React.FC = () => {
               <button className="px-6 py-4 bg-white border border-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95">
                 Exportar Dados
               </button>
-              <button className="px-7 py-4 bg-slate-950 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-slate-200 hover:bg-indigo-600 transition-all active:scale-95 flex items-center gap-3">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" />
-                </svg>
+              <button onClick={() => navigate('/imoveis/novo')} className="px-7 py-4 bg-slate-950 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-slate-200 hover:bg-indigo-600 transition-all active:scale-95 flex items-center gap-3">
+                <Icons.Plus />
                 Cadastrar Imóvel
               </button>
             </div>
           </div>
 
-          {/* Grid de Métricas - Proporções de SaaS Premium */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {metrics.map((metric, idx) => (
               <StatCard key={idx} {...metric} />
             ))}
           </div>
 
-          {/* Seção Principal de Dados */}
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
             
-            {/* Tabela de Leads Recentes */}
+            {/* Bloco Leads Recentes */}
             <div className="xl:col-span-8 bg-white rounded-[2.5rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)] overflow-hidden flex flex-col">
-              <div className="px-10 py-8 border-b border-slate-50 flex justify-between items-center">
+              <div className="px-10 py-8 border-b border-slate-50 flex justify-between items-center bg-white">
                 <div>
-                  <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em]">Fluxo de Leads</h3>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Últimas 24 horas</p>
+                  <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em]">Leads Recentes</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Últimas interações</p>
                 </div>
-                <button className="p-3 bg-slate-50 rounded-xl text-slate-400 hover:text-indigo-600 transition-colors">
-                  <Icons.Settings />
+                <button 
+                  onClick={() => navigate('/leads')}
+                  className="text-[10px] font-black text-indigo-600 hover:text-indigo-700 uppercase tracking-[0.2em] transition-colors"
+                >
+                  Ver todos
                 </button>
               </div>
               
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="bg-slate-50/40">
-                    <tr>
-                      <th className="px-10 py-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Interessado</th>
-                      <th className="px-10 py-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Propriedade Alvo</th>
-                      <th className="px-10 py-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Status</th>
-                      <th className="px-10 py-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Ação</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <tr key={i} className="group hover:bg-slate-50/50 transition-colors cursor-default">
-                        <td className="px-10 py-6">
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 font-black text-[10px]">
-                              --
-                            </div>
-                            <div>
-                              <div className="text-xs font-black text-slate-900 uppercase tracking-tight">Sincronizando...</div>
-                              <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">via API Supabase</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-10 py-6">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Aguardando Vinculação</span>
-                        </td>
-                        <td className="px-10 py-6">
-                          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-full border border-slate-100">
-                            <div className="w-1 h-1 rounded-full bg-slate-300 animate-pulse"></div>
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Pendente</span>
-                          </div>
-                        </td>
-                        <td className="px-10 py-6 text-right">
-                          <button className="text-[9px] font-black text-slate-300 hover:text-indigo-600 uppercase tracking-widest transition-all">Detalhes</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="flex flex-col">
+                {loadingLeads ? (
+                  <div className="py-20 flex flex-col items-center justify-center space-y-4">
+                    <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                    <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Sincronizando Leads...</p>
+                  </div>
+                ) : recentLeads.length === 0 ? (
+                  <div className="py-20 text-center">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nenhum lead registrado</p>
+                  </div>
+                ) : (
+                  recentLeads.map((lead) => (
+                    <div 
+                      key={lead.id}
+                      onClick={() => openWhatsApp(lead)}
+                      className="group flex items-center gap-6 px-10 py-6 hover:bg-slate-50 transition-colors duration-200 cursor-pointer border-b border-slate-50 last:border-0"
+                    >
+                      <div className="w-12 h-12 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-black text-sm uppercase transition-transform group-hover:scale-105">
+                        {lead.nome ? lead.nome[0] : '?'}
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-black text-slate-900 uppercase tracking-tight truncate">
+                          {lead.nome || 'Interessado Anônimo'}
+                        </div>
+                        <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1 truncate">
+                          {lead.imovel_interesse || 'Interesse Geral'}
+                        </div>
+                      </div>
+
+                      <div className="hidden md:block">
+                        <span className="px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-[8px] font-black uppercase tracking-widest text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-500 group-hover:border-indigo-100 transition-all">
+                          {lead.origem}
+                        </span>
+                      </div>
+
+                      <div className="text-right">
+                        <div className="text-[10px] font-black text-slate-950 uppercase tracking-tighter">
+                          {formatDateTime(lead.created_at)}
+                        </div>
+                        <div className="text-[8px] font-bold text-slate-300 uppercase tracking-widest mt-0.5">
+                          Enviado em
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
-            {/* Sidebar Lateral de Ações e Status */}
             <div className="xl:col-span-4 space-y-6">
-              {/* Banner de Performance */}
               <div className="bg-indigo-600 rounded-[2.5rem] p-10 text-white relative overflow-hidden group shadow-2xl shadow-indigo-100">
                 <div className="absolute -top-12 -right-12 w-48 h-48 bg-white/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-1000"></div>
                 
@@ -162,7 +213,6 @@ const Dashboard: React.FC = () => {
                 </div>
               </div>
 
-              {/* Status do Sistema */}
               <div className="bg-white rounded-[2rem] border border-slate-100 p-8 shadow-sm flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="relative">
