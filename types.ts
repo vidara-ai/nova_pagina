@@ -2,7 +2,7 @@
 export interface ImovelFoto {
   id?: string;
   imovel_id?: string;
-  url: string;
+  path: string;
   ordem: number;
   is_capa: boolean;
 }
