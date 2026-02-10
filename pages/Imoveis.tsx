@@ -39,7 +39,8 @@ const Imoveis: React.FC = () => {
     }
   }
 
-  async function handleDelete(id: string) {
+  async function handleDelete(e: React.MouseEvent, id: string) {
+    e.stopPropagation();
     if (!confirm('Tem certeza que deseja excluir este imóvel?')) return;
     try {
       const { error } = await supabase.from('imoveis').delete().eq('id', id);
@@ -128,7 +129,6 @@ const Imoveis: React.FC = () => {
               <h2 className="text-4xl md:text-5xl font-black text-slate-950 uppercase tracking-tighter leading-[0.85]">
                 Gestão de <span className="text-slate-300">Imóveis</span>
               </h2>
-              <p className="text-slate-500 text-sm font-medium tracking-tight">Visualize e controle seu catálogo de propriedades de luxo.</p>
             </div>
             
             <div className="flex items-center gap-3">
@@ -171,7 +171,11 @@ const Imoveis: React.FC = () => {
                   </thead>
                   <tbody className="divide-y divide-slate-50">
                     {filteredImoveis.map((item) => (
-                      <tr key={item.id} className="group hover:bg-slate-50/50 transition-colors cursor-default">
+                      <tr 
+                        key={item.id} 
+                        onClick={() => navigate(`/imoveis/${item.id}`)}
+                        className="group hover:bg-slate-50 transition-colors cursor-pointer"
+                      >
                         <td className="px-10 py-6">
                           <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{item.codigo_imovel}</span>
                         </td>
@@ -196,11 +200,20 @@ const Imoveis: React.FC = () => {
                           </span>
                         </td>
                         <td className="px-10 py-6 text-right">
-                          <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
-                            <button onClick={() => navigate(`/imoveis/${item.id}`)} className="p-2.5 bg-slate-50 hover:bg-white border border-transparent hover:border-slate-200 rounded-xl transition-all text-slate-400 hover:text-indigo-600">
+                          <div className="relative flex items-center justify-end gap-2 opacity-100 transition-all duration-300">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/imoveis/${item.id}`);
+                              }}
+                              className="p-2.5 bg-slate-50 hover:bg-white border border-transparent hover:border-slate-200 rounded-xl transition-all text-slate-400 hover:text-indigo-600"
+                            >
                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
                             </button>
-                            <button onClick={() => handleDelete(item.id)} className="p-2.5 bg-slate-50 hover:bg-rose-50 border border-transparent hover:border-rose-100 rounded-xl transition-all text-slate-400 hover:text-rose-600">
+                            <button 
+                              onClick={(e) => handleDelete(e, item.id)}
+                              className="p-2.5 bg-slate-50 hover:bg-rose-50 border border-transparent hover:border-rose-100 rounded-xl transition-all text-slate-400 hover:text-rose-600"
+                            >
                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                             </button>
                           </div>
